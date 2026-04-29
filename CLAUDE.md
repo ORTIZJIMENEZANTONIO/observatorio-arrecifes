@@ -92,10 +92,16 @@ observatorio-arrecifes/
     conflicts.ts            # 6 casos socioambientales (Tren Maya, cruceros, FONATUR, etc.)
     bleaching-alerts.ts     # Snapshot NOAA CRW por reefId (DHW, SST, anomaly, level)
     kpis.ts                 # KPIs computados sobre los datos mock
+  deploy/
+    nginx.conf              # server block SSL + redirect 80→443 (arrecifes.cercu.com.mx)
+    ecosystem.config.cjs    # PM2 app arrecifes :3007 con env vars de producción
+    DEPLOY.md               # guía paso a paso (rsync, build, PM2, certbot, CORS)
   layouts/
     default.vue             # AppHeader + slot + AppFooter
+    admin.vue               # sidebar colapsable + badge de rol + logout
   middleware/
     redirects.global.ts     # Legacy aliases (/map → /livemap, /reefs → /inventory, etc.)
+    admin.ts                # protege /admin/* + mapeo ruta → permiso
   pages/
     index.vue               # Home: hero océano + reef-card stack flotante + KPIs bento +
                             # 3 features + alertas live + top contributors + CTA
@@ -606,6 +612,51 @@ editor        — manage_cms (futuro), manage_conflicts
 - **NOAA CRW poll:** `0 */6 * * *` — fetch DHW + bleaching alerts cada 6h
 - **NOAA SaWS poll:** `0 12 * * 1` — sargazo semanal lunes
 - **Sentinel-2 ingestion:** `0 3 * * *` — nuevos tiles para arrecifes mexicanos
+
+## Deployment (✅ producción)
+
+**Dominio:** `https://arrecifes.cercu.com.mx` (SSL vía Certbot, redirect 80→443)
+**Servidor:** `srv1420267` (`72.62.200.124`) — mismo host que humedales/techos-verdes
+**Repo:** `https://github.com/ORTIZJIMENEZANTONIO/observatorio-arrecifes`
+
+### Mapa de puertos PM2
+
+| Servicio | Puerto |
+|----------|--------|
+| cercu-frontend | 3001 |
+| observatorio-techos-verdes | 3002 |
+| cercu-backend | 3003 |
+| observatorio-humedales | 3005 |
+| **observatorio-arrecifes** | **3007** |
+
+### Artefactos de despliegue (`deploy/`)
+
+- `deploy/nginx.conf` — server block SSL + redirect 80→443 para
+  `arrecifes.cercu.com.mx`. Proxy `/api/ → :3003` (backend) y `/ → :3007` (Nuxt).
+- `deploy/ecosystem.config.cjs` — PM2 app `arrecifes` con env vars: `PORT=3007`,
+  `NODE_ENV=production`, `NUXT_PUBLIC_API_BASE_URL=https://arrecifes.cercu.com.mx/api/v1`,
+  `NUXT_PUBLIC_OBSERVATORY=arrecifes`, `NUXT_PUBLIC_DATA_MODE=api`.
+- `deploy/DEPLOY.md` — guía paso a paso (rsync/git pull, build, PM2, certbot, seed).
+
+### Update flow (después del deploy inicial)
+
+```bash
+# Local
+cd cercu-backend && git push       # si tocaste backend
+cd observatorio-arrecifes && git push
+
+# Servidor — backend
+ssh root@72.62.200.124
+cd /var/www/cercu-backend && git pull && npm install && npm run build && pm2 restart cercu-backend
+
+# Servidor — frontend
+cd /var/www/cercu-frontend/arrecifes && git pull && npm install && npm run build && pm2 restart arrecifes
+```
+
+### CORS
+
+`https://arrecifes.cercu.com.mx` está incluido en `CORS_ORIGIN` del `.env` de
+`cercu-backend`. Sin esto el navegador rechaza por preflight.
 
 ## Sibling Projects
 

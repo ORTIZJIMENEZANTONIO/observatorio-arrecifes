@@ -67,7 +67,8 @@ export const useAuthStore = defineStore('auth', () => {
     admin.value = null
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(ADMIN_KEY)
-    navigateTo('/admin/login')
+    // replace: true → no permite "atrás" al panel después de cerrar sesión
+    navigateTo('/admin/login', { replace: true })
   }
 
   return { token, admin, isAuthenticated, isSuperadmin, roleLabel, hasPermission, login, logout, loadFromStorage }

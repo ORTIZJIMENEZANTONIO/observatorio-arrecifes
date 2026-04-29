@@ -72,6 +72,7 @@ export interface Reef {
   lng: number
   description: string
   hero?: string                         // hero image path
+  gallery?: string[]                    // hasta 3 imágenes adicionales para drawer
   imageCredit?: string
   visible?: boolean
   archived?: boolean
@@ -138,6 +139,12 @@ export interface DataLayer {
   previewUrl?: string                   // tile preview
   lastUpdated?: string
   active: boolean                       // toggleable on the live map
+  // ── Live overlay (optional) — si están presentes, la capa se renderiza
+  // sobre el mapa al estar `active = true`. Si no, sólo aparece en catálogo.
+  wmsUrl?: string                       // WMS GetMap base endpoint
+  wmsLayerName?: string                 // capa específica del WMS server
+  tileUrlPattern?: string               // XYZ tile pattern alternative ({z}/{x}/{y})
+  overlayOpacity?: number               // 0-1, default 0.7
 }
 
 // ── User-contributed observations (citizen + drone + research) ─────────────

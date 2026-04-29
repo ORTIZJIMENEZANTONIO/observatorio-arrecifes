@@ -81,7 +81,8 @@ observatorio-arrecifes/
   composables/
     useFormatters.ts        # es-MX locale + maps de tipos a etiquetas (es), badge classes
     useScrollReveal.ts      # IntersectionObserver para .reveal/.is-visible
-    useMapConfig.ts         # Default center MX (21,-94 z=5), Esri Ocean basemap, marker style
+    useMapConfig.ts         # Default center MX (21,-94 z=5), 3 basemaps (Imagery/Ocean/Streets),
+                            # labels overlay Esri Reference, marker style por estado
     useApi.ts               # $fetch wrapper con baseURL cercu-backend + token Bearer
   data/
     reefs.ts                # 12 arrecifes mexicanos (Caribe + GoM + Pacífico). reefSummary
@@ -105,7 +106,8 @@ observatorio-arrecifes/
   pages/
     index.vue               # Home: hero océano + reef-card stack flotante + KPIs bento +
                             # 3 features + alertas live + top contributors + CTA
-    livemap.vue             # Mapa vivo full-screen con toolbar + legend + panel de capas
+    livemap.vue             # Mapa Google-Earth-style: basemap switcher (Satélite/Batimetría/
+                            # Mapa), buscador con flyTo, leyenda, panel WMS con badges Live/Catálogo
     inventory/index.vue     # Cards 12 arrecifes + filtros + sort + drawer detalle
     atlas/index.vue         # Atlas EJAtlas-style: drivers vs resistance + drawer detalle
     data-sources/index.vue  # Catálogo de capas con filtros + atribuciones + descargas
@@ -188,7 +190,9 @@ interface Reef {
   bleachingAlert?: BleachingAlertLevel
   speciesRichness?: number; threats: ThreatType[]; observations: number
   lat: number; lng: number; description: string
-  hero?: string; imageCredit?: string
+  hero?: string                      // imagen principal (cards / livemap popup)
+  gallery?: string[]                 // hasta 3 imágenes adicionales (drawer detalle)
+  imageCredit?: string
   visible?: boolean; archived?: boolean
 }
 
@@ -208,6 +212,11 @@ interface DataLayer {
   license: string; attribution: string             // ATRIBUCIÓN OBLIGATORIA
   sourceUrl: string; downloadUrl?: string; previewUrl?: string
   lastUpdated?: string; active: boolean
+  // ── Live overlay opcional ── si trae wmsUrl/wmsLayerName o tileUrlPattern,
+  // se renderiza sobre el mapa al estar active=true. Si no, sólo catálogo.
+  wmsUrl?: string; wmsLayerName?: string
+  tileUrlPattern?: string
+  overlayOpacity?: number                          // 0-1, default 0.7
 }
 
 type ObservationType = 'satellite_image' | 'drone_flight' | 'underwater_photo' |
@@ -290,6 +299,36 @@ interface SocioEnvironmentalConflict {
 campo `attribution`). Mostradas en `/data-sources` y disponibles para descarga directa al
 proveedor.
 
+### WMS overlays activos en `/livemap`
+
+3 de las 13 capas tienen endpoint WMS público y se renderizan sobre el mapa al activar
+el toggle. Las demás aparecen como **Catálogo** (sólo metadatos + link a fuente).
+
+| Layer | wmsUrl | wmsLayerName | opacity |
+|-------|--------|--------------|---------|
+| `noaa-crw-bleaching-alert` | `coastwatch.pfeg.noaa.gov/erddap/wms/NOAA_DHW/request` | `NOAA_DHW:CRW_BAA_max_7d` | 0.65 |
+| `gebco-bathymetry` | `wms.gebco.net/mapserv` | `GEBCO_LATEST` | 0.55 |
+| `conabio-anp-marinas` | `geoportal.conabio.gob.mx/geoserver/wms` | `CONABIO:anpfedmay24gw` | 0.5 |
+
+Los demás providers (NASA PACE, Sentinel-2, GFW, INEGI, Allen Coral Atlas) requieren
+auth/API key — quedan como catálogo. Para añadir una capa nueva con render: agrega
+`wmsUrl` + `wmsLayerName` al objeto en `data/layers.ts` y `MapPanel.client.vue` la
+recogerá automáticamente vía `useLayersStore().activeLayers`.
+
+### Imágenes y galería de arrecifes (✅ implementado)
+
+Cada `Reef` tiene 1 `hero` (cards/livemap) + hasta 3 `gallery[]` (drawer detalle):
+- **Carpeta pública:** `/public/images/reefs/{slug}.jpg` (12 fotos 1600px-wide
+  Unsplash commercial-free, ~340 KB promedio).
+- **Drawer `/inventory`:** sección "Galería" con 3 thumbs aspect-square, hover-zoom,
+  click abre full size en pestaña nueva. Si `gallery` vacío, fallback a `[hero]`.
+- **Editor admin `/admin/reefs`:** botón **Editar imágenes** por fila → modal con
+  preview en vivo de hero + 3 inputs URL de galería + crédito. PATCH `/admin/reefs/:id`
+  con `{ hero, imageCredit, gallery }`.
+- **Backend:** `ObsReef.gallery` columna JSON nullable (auto-sync TypeORM crea sin
+  migración manual). `arrecifes.seed.ts` siembra 3 URLs Unsplash por arrecife vía
+  `GALLERIES: Record<id, string[]>`.
+
 ## Sistema de reputación (red de colaboradores)
 
 Inspirado en Mercado Libre/Rappi: rango basado en aportes validados, calidad y consistencia
@@ -365,7 +404,12 @@ reputationScore = (validatedContributions * 5)
 - **KPIs:** `.kpi-card`
 - **Tables:** `.table-base` / `.table-container`
 - **Layout:** `.container-wide` / `.container-narrow` / `.section-padding`
-- **Tier badges:** `.tier-bronze` / `.tier-silver` / `.tier-gold` / `.tier-platinum` / `.tier-coral`
+- **Tier badges premium** (gradient + inner highlight + sombra suave):
+  - `.tier-bronze` (cobre cálido) · `.tier-silver` (acero pulido) · `.tier-gold` (oro)
+  - `.tier-platinum` (cyan brand) · `.tier-coral` (coral brand, top tier)
+- **Tier ring** (`.tier-ring-{X}`) — gradient pill alrededor del avatar en `ContributorCard`
+- **Tier accent** (`.tier-accent-{X}`) — banda gradient de 1px en el borde superior de cada
+  card que diferencia visualmente el rango sin romper la línea de diseño
 - **Live indicator:** `.live-dot` (pulso coral 2s)
 
 ### Design philosophy (2026)
@@ -449,7 +493,10 @@ Todas las animaciones desactivadas con `@media (prefers-reduced-motion: reduce)`
 Mapa vivo | Arrecifes | Atlas | Datos | Comunidad | [Contribuir →]
 ```
 
-- **Mapa vivo** (`/livemap`) — Leaflet full-screen, toolbar, legend, panel de capas
+- **Mapa vivo** (`/livemap`) — Leaflet full-screen estilo Google Earth: basemap
+  switcher (Satélite Esri World Imagery / Batimetría / Mapa OSM) + labels overlay
+  toggleable, buscador con `flyTo`, popups con hero image, halo pulsante en
+  alertas críticas, panel de capas con render WMS real (badges `Live` / `Catálogo`)
 - **Arrecifes** (`/inventory`) — cards + filtros + sort + drawer detalle (antes "Inventario")
 - **Atlas** (`/atlas`) — conflictos socioambientales (estilo EJAtlas)
 - **Datos** (`/data-sources`) — catálogo de capas, atribuciones, descargas (antes "Capas y datos")
@@ -500,6 +547,28 @@ Leaflet y Chart.js deben renderizar client-side:
 - **camelCase** para variables, funciones, props (excepto componentes y tipos: PascalCase)
 - **Mobile-first** Tailwind (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`)
 - **es-MX** en todo el copy mostrado al usuario
+- **NUNCA inline styles** — prohibido `style="..."` y `:style="..."` en templates.
+  Si necesitas un estilo dinámico, usa una clase utility en `assets/css/main.css` (`@layer
+  utilities`) o una CSS custom property en `<style>` scoped. Para HTML inyectado por
+  librerías externas (Leaflet popups, etc.), define clases en un bloque `<style>`
+  no-scoped del componente.
+- **NUNCA `!important`** — incluye el prefijo `!` de Tailwind (`!bg-primary`, `!text-`).
+  Para ganar especificidad sobre estilos inline o reglas externas, usa selectores
+  anidados (`.leaflet-container .leaflet-control-zoom`), `:where()/:is()`, o reescribe
+  con clases mutuamente excluyentes (ej. `:class="[isActive ? 'A' : 'B']"` en vez de
+  `active-class="!A"`). Excepción aceptable: librería de terceros que pinta inline
+  styles que **no** se pueden vencer con especificidad — en ese caso documenta el
+  porqué en comentario.
+
+### Number coercion (MySQL decimal → string)
+
+TypeORM/MySQL devuelve columnas `decimal` (lat, lng, area, liveCoralCover,
+acceptanceRate, averageQuality, dhw, sst…) como **strings**. Cualquier consumidor
+que llame `.toFixed()`, comparaciones aritméticas o `.reduce` debe coercir con
+`Number(value)` primero. `composables/useFormatters.ts` ya hace coerción defensiva
+en `formatNumber`, `formatHectares`, `formatPercent`, `formatDepth` (devuelven `'—'`
+si no es finito). Para nuevas vistas: usa esos helpers o envuelve con `Number()`
+antes de operar.
 
 ### Stores (Pinia composable, con localStorage overrides)
 
@@ -674,27 +743,46 @@ Diferencias clave:
 - **Red de colaboradores:** sistema de reputación marketplace-style
 - **Atlas de conflictos:** sección dedicada al estilo EJAtlas
 
-## Admin del observatorio (✅ scaffold inicial)
+## Admin del observatorio (✅ CRUD completo + UI homogénea)
 
-Páginas en `pages/admin/`:
+Todas las páginas siguen el **mismo patrón tabular**:
+1. Header (h2 + contador + `Refrescar` + `Nuevo X`)
+2. Botón **mobile-only** `Mostrar/Ocultar filtros` con badge de filtros activos
+3. Filters card (search + dropdowns + contador resultados + `Limpiar filtros`).
+   Siempre desplegado en `md+`; toggleable en mobile vía `filtersOpen` ref.
+4. Tabla `table-base` con acciones `pencil` (edit) + `trash-2` (delete) por fila
+5. Modal único Create/Edit (`editingId === 0` crea, `>0` edita)
+
+Páginas:
 - `/admin/login` — email + password contra `POST /observatory/auth/login`
-- `/admin` — dashboard con summary (reefs, conflicts, contributors, cola de observaciones)
-- `/admin/reefs` — tabla con toggles `visible` / `archived`
-- `/admin/observations` — cola de revisión con drawer modal (validar / rechazar / pedir info)
-- `/admin/conflicts` — toggles visible/archived
-- `/admin/contributors` — leaderboard con toggle `verified`
-- `/admin/usuarios` — lista de admins del observatorio
+- `/admin` — dashboard con summary (reefs, conflicts, contributors, observations)
+- `/admin/reefs` — CRUD completo + galería + filtros: Litoral, Estatus, Protección, Visibilidad
+- `/admin/observations` — tabla cola de revisión + filtros: Estado, Tipo, Reef, Colaborador
+- `/admin/conflicts` — CRUD completo + filtros: Estado, Intensidad, Status, Visibilidad
+- `/admin/contributors` — CRUD completo + filtros: Rol, Tier, Verificación, Perfil público
+- `/admin/usuarios` — lista de admins (solo lectura, los crea el seed por seguridad)
 
 Composables/stores:
 - `stores/auth.ts` — login/logout, `loadFromStorage`, `hasPermission`. Token en
-  `localStorage` bajo clave `arrecifes-admin-token`.
+  `localStorage` bajo clave `arrecifes-admin-token`. `logout()` usa `replace: true`.
 - `middleware/admin.ts` — protege `/admin/*` (excepto `/admin/login`) y mapea ruta →
-  permiso (`manage_reefs`, `review_submissions`, etc.).
-- `composables/useApi.ts` — ya envía `Authorization: Bearer <token>` y prefija
-  `/observatory/arrecifes`.
+  permiso (`manage_reefs`, `review_submissions`, etc.). Redirige con `replace: true` y
+  agrega `?redirect=<ruta-original>` para que el login vuelva ahí.
+- `composables/useApi.ts` — envía `Authorization: Bearer <token>`, prefija
+  `/observatory/arrecifes`, y **detecta 401/403** del backend para auto-cerrar sesión:
+  borra el token + redirige a `/admin/login?redirect=<ruta-actual>` con `replace: true`.
 
 Layout `layouts/admin.vue` con sidebar colapsable (mobile <lg) y badge de rol del usuario.
 Cada página admin debe declarar `definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })`.
+
+### Flujo de expiración de token (✅ no se puede usar "atrás" para volver)
+
+1. `useApi` recibe 401 / 403 → limpia `localStorage` y `navigateTo('/admin/login', { replace: true })`.
+2. Login lee `?redirect=/admin/X` (whitelist `/admin/*` para evitar open redirect) y
+   vuelve ahí tras autenticar, también con `replace: true`.
+3. `auth.logout()` y `middleware/admin` también usan `replace: true`. Resultado: la
+   pantalla protegida nunca queda en el back-stack del navegador, así que la flecha
+   "atrás" jamás regresa a una vista bloqueada.
 
 ## Roadmap (v2+)
 

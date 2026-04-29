@@ -16,13 +16,21 @@ export const useFormatters = () => {
   const percentFmt = new Intl.NumberFormat('es-MX', { style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: 1 })
   const dateFmt = new Intl.DateTimeFormat('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
 
-  const formatNumber = (value: number, decimals = false): string =>
-    decimals ? decimalFmt.format(value) : numberFmt.format(value)
+  const formatNumber = (value: number | string | null | undefined, decimals = false): string => {
+    const n = Number(value)
+    if (!Number.isFinite(n)) return '—'
+    return decimals ? decimalFmt.format(n) : numberFmt.format(n)
+  }
 
-  const formatHectares = (ha: number): string => `${numberFmt.format(ha)} ha`
+  const formatHectares = (ha: number | string | null | undefined): string => {
+    const n = Number(ha)
+    return Number.isFinite(n) ? `${numberFmt.format(n)} ha` : '—'
+  }
 
-  const formatPercent = (value: number): string => {
-    const normalized = value > 1 ? value / 100 : value
+  const formatPercent = (value: number | string | null | undefined): string => {
+    const n = Number(value)
+    if (!Number.isFinite(n)) return '—'
+    const normalized = n > 1 ? n / 100 : n
     return percentFmt.format(normalized)
   }
 
@@ -32,7 +40,12 @@ export const useFormatters = () => {
     return dateFmt.format(date)
   }
 
-  const formatDepth = (range: [number, number]): string => `${range[0]}–${range[1]} m`
+  const formatDepth = (range: [number, number] | number[] | null | undefined): string => {
+    if (!Array.isArray(range) || range.length < 2) return '—'
+    const a = Number(range[0]); const b = Number(range[1])
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return '—'
+    return `${a}–${b} m`
+  }
 
   const formatReefStatus = (status: ReefStatus): string => {
     const map: Record<ReefStatus, string> = {

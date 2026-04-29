@@ -128,12 +128,54 @@
   .table-base td { @apply px-4 py-3 text-sm text-ink whitespace-nowrap; }
   .table-base tbody tr { @apply border-b border-gray-50 last:border-0 hover:bg-primary-50/30 transition-colors; }
 
-  /* ── Reputation tiers (contributor profiles) ── */
-  .tier-bronze { @apply bg-amber-100 text-amber-800 border-amber-200; }
-  .tier-silver { @apply bg-slate-100 text-slate-700 border-slate-200; }
-  .tier-gold { @apply bg-yellow-100 text-yellow-800 border-yellow-300; }
-  .tier-platinum { @apply bg-cyan-100 text-cyan-800 border-cyan-200; }
-  .tier-coral { @apply bg-coral-50 text-coral-dark border-coral-100; }
+  /* ── Reputation tiers — premium pill, 5 niveles diferenciados ──
+     Cada tier mantiene el mismo formato (rounded-full, shield icon, peso 700)
+     pero con fondo gradient propio + borde + sombra interior sutil que da
+     sensación de "moneda" o "medalla". ── */
+  .tier-bronze {
+    background: linear-gradient(135deg, #FBE6C7 0%, #E8B176 60%, #B45309 100%);
+    color: #5A2D0C;
+    border: 1px solid #C97D2C;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 1px 2px rgba(180,83,9,0.25);
+  }
+  .tier-silver {
+    background: linear-gradient(135deg, #F8FAFC 0%, #CBD5E1 60%, #64748B 100%);
+    color: #1E293B;
+    border: 1px solid #94A3B8;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(100,116,139,0.25);
+  }
+  .tier-gold {
+    background: linear-gradient(135deg, #FFF7CC 0%, #FCD34D 50%, #B45309 100%);
+    color: #5C320A;
+    border: 1px solid #D97706;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 3px rgba(217,119,6,0.3);
+  }
+  .tier-platinum {
+    background: linear-gradient(135deg, #ECFEFF 0%, #67E8F9 50%, #0E7490 100%);
+    color: #083344;
+    border: 1px solid #22D3EE;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 3px rgba(14,116,144,0.3);
+  }
+  .tier-coral {
+    background: linear-gradient(135deg, #FFE4DC 0%, #FF9181 45%, #E5503D 100%);
+    color: #5A1408;
+    border: 1px solid #FF7A66;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 1px 4px rgba(255,122,102,0.4);
+  }
+
+  /* ── Tier ring around avatar (gradient borde) ── */
+  .tier-ring-bronze { background: linear-gradient(135deg, #E8B176, #B45309); }
+  .tier-ring-silver { background: linear-gradient(135deg, #CBD5E1, #64748B); }
+  .tier-ring-gold { background: linear-gradient(135deg, #FCD34D, #B45309); }
+  .tier-ring-platinum { background: linear-gradient(135deg, #67E8F9, #0E7490); }
+  .tier-ring-coral { background: linear-gradient(135deg, #FF9181, #E5503D); }
+
+  /* ── Tier accent (top stripe en card) ── */
+  .tier-accent-bronze { background: linear-gradient(90deg, #FBE6C7, #B45309 70%); }
+  .tier-accent-silver { background: linear-gradient(90deg, #F8FAFC, #64748B 70%); }
+  .tier-accent-gold { background: linear-gradient(90deg, #FFF7CC, #D97706 70%); }
+  .tier-accent-platinum { background: linear-gradient(90deg, #ECFEFF, #0E7490 70%); }
+  .tier-accent-coral { background: linear-gradient(90deg, #FFE4DC, #E5503D 70%); }
 
   /* ── Live data pulse ── */
   .live-dot {
@@ -147,6 +189,12 @@
   .text-balance { text-wrap: balance; }
   .text-gradient-primary { @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent; }
   .text-gradient-coral { @apply bg-gradient-to-r from-coral to-accent bg-clip-text text-transparent; }
+
+  /* Subtle dot pattern para fondos (login, hero overlays) */
+  .bg-dot-pattern {
+    background-image: radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0);
+    background-size: 32px 32px;
+  }
   .text-gradient-hero {
     background: linear-gradient(120deg, #67E8F9 0%, #FF9181 60%, #FBBF24 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -211,19 +259,18 @@
 .stagger-children > .reveal:nth-child(7) { transition-delay: 360ms; }
 .stagger-children > .reveal:nth-child(8) { transition-delay: 420ms; }
 
+/* Reduce motion — cada componente con animación maneja su propio
+   `@media (prefers-reduced-motion: reduce)` (HeroSection, livemap, ContributorCard, etc.). */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
   .reveal, .reveal-left, .reveal-scale { opacity: 1; transform: none; transition: none; }
 }
 
+/* Leaflet overrides — usamos selectores anidados (`.leaflet-container ...`)
+   para ganar especificidad sin `!important`. */
 .leaflet-container { font-family: 'Inter', system-ui, sans-serif; font-size: 0.875rem; z-index: 0; }
-.leaflet-popup-content-wrapper { border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 0; overflow: hidden; }
-.leaflet-popup-content { margin: 0; min-width: 200px; max-width: 320px; }
-.leaflet-control-zoom { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important; border-radius: 0.5rem !important; overflow: hidden; }
-.leaflet-control-zoom a { color: #0F172A !important; background-color: white !important; border-bottom: 1px solid #e5e7eb !important; width: 36px !important; height: 36px !important; line-height: 36px !important; font-size: 1rem !important; }
-.leaflet-control-attribution { font-size: 0.625rem; background: rgba(255,255,255,0.85) !important; padding: 2px 8px !important; }
-.leaflet-control-attribution a { color: #0E7490 !important; }
+.leaflet-container .leaflet-popup-content-wrapper { border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 0; overflow: hidden; }
+.leaflet-container .leaflet-popup-content { margin: 0; min-width: 200px; max-width: 320px; }
+.leaflet-container .leaflet-control-zoom { border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-radius: 0.5rem; overflow: hidden; }
+.leaflet-container .leaflet-control-zoom a { color: #0F172A; background-color: white; border-bottom: 1px solid #e5e7eb; width: 36px; height: 36px; line-height: 36px; font-size: 1rem; }
+.leaflet-container .leaflet-control-attribution { font-size: 0.625rem; background: rgba(255,255,255,0.85); padding: 2px 8px; }
+.leaflet-container .leaflet-control-attribution a { color: #0E7490; }

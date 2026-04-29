@@ -2,10 +2,13 @@
 definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })
 
 interface Summary {
-  observatory: string
-  content: { reefs: number; conflicts: number; contributors: number }
-  observations: { pending: number; in_review: number; validated: number; rejected: number; needs_more_info: number }
-  reefsByStatus: Record<string, number>
+  observatory?: string
+  // `content` = públicos (visible+!archived). `totals` = todos en BD.
+  content?: Partial<{ reefs: number; conflicts: number; contributors: number }>
+  contenido?: Partial<{ reefs: number; conflicts: number; contributors: number }>
+  totals?: Partial<{ reefs: number; conflicts: number; contributors: number }>
+  observations?: Partial<{ pending: number; in_review: number; validated: number; rejected: number; needs_more_info: number }>
+  reefsByStatus?: Record<string, number>
 }
 
 const { apiFetch } = useApi()
@@ -13,10 +16,15 @@ const summary = ref<Summary | null>(null)
 const loading = ref(true)
 const error = ref('')
 
+const num = (v: unknown): number => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
 onMounted(async () => {
   try {
     const res = await apiFetch<{ success: boolean; data: Summary }>('/admin/summary')
-    summary.value = res.data
+    summary.value = res.data ?? null
   } catch (e: any) {
     error.value = e?.data?.error?.message || 'No se pudo cargar el resumen'
   } finally {
@@ -24,15 +32,22 @@ onMounted(async () => {
   }
 })
 
+const content = computed(() => summary.value?.content ?? summary.value?.contenido ?? {})
+const totals = computed(() => summary.value?.totals ?? {})
+const observations = computed(() => summary.value?.observations ?? {})
+const reefsByStatus = computed(() => summary.value?.reefsByStatus ?? {})
+
 const cards = computed(() => {
   if (!summary.value) return []
-  const { content, observations } = summary.value
+  const c = content.value
+  const t = totals.value
+  const o = observations.value
   return [
-    { label: 'Arrecifes', value: content.reefs, icon: 'lucide:waves', tone: 'primary', to: '/admin/reefs' },
-    { label: 'Aportes pendientes', value: observations.pending + observations.in_review, icon: 'lucide:inbox', tone: 'coral', to: '/admin/observations' },
-    { label: 'Aportes validados', value: observations.validated, icon: 'lucide:check-circle-2', tone: 'eco', to: '/admin/observations?status=validated' },
-    { label: 'Conflictos', value: content.conflicts, icon: 'lucide:alert-triangle', tone: 'accent', to: '/admin/conflicts' },
-    { label: 'Colaboradores', value: content.contributors, icon: 'lucide:users', tone: 'primary', to: '/admin/contributors' },
+    { label: 'Arrecifes públicos', value: num(c.reefs), total: num(t.reefs), icon: 'lucide:waves', tone: 'primary', to: '/admin/reefs' },
+    { label: 'Aportes pendientes', value: num(o.pending) + num(o.in_review), total: null, icon: 'lucide:inbox', tone: 'coral', to: '/admin/observations' },
+    { label: 'Aportes validados', value: num(o.validated), total: null, icon: 'lucide:check-circle-2', tone: 'eco', to: '/admin/observations?status=validated' },
+    { label: 'Conflictos públicos', value: num(c.conflicts), total: num(t.conflicts), icon: 'lucide:alert-triangle', tone: 'accent', to: '/admin/conflicts' },
+    { label: 'Colaboradores', value: num(c.contributors), total: num(t.contributors), icon: 'lucide:users', tone: 'primary', to: '/admin/contributors' },
   ]
 })
 
@@ -67,15 +82,18 @@ const toneClass = (tone: string) => ({
           </div>
           <span class="text-xs font-medium uppercase tracking-wider text-ink-muted">{{ c.label }}</span>
         </div>
-        <span class="text-3xl font-bold text-ink">{{ c.value.toLocaleString('es-MX') }}</span>
+        <span class="text-3xl font-bold text-ink">{{ Number(c.value).toLocaleString('es-MX') }}</span>
+        <span v-if="c.total !== null && c.total !== c.value" class="text-[11px] text-ink-muted">
+          {{ c.total.toLocaleString('es-MX') }} en total ({{ c.total - c.value }} ocultos/archivados)
+        </span>
       </NuxtLink>
     </div>
 
-    <div v-if="summary" class="card p-5">
+    <div v-if="summary && Object.keys(reefsByStatus).length" class="card p-5">
       <h3 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-muted">Arrecifes por estado</h3>
       <div class="flex flex-wrap gap-2">
         <span
-          v-for="(count, status) in summary.reefsByStatus"
+          v-for="(count, status) in reefsByStatus"
           :key="status"
           class="badge-secondary"
         >
@@ -84,10 +102,10 @@ const toneClass = (tone: string) => ({
       </div>
     </div>
 
-    <div v-if="summary" class="card p-5">
+    <div v-if="summary && Object.keys(observations).length" class="card p-5">
       <h3 class="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-muted">Cola de revisión</h3>
       <div class="grid grid-cols-2 gap-4 sm:grid-cols-5">
-        <div v-for="(count, status) in summary.observations" :key="status" class="rounded-lg border border-gray-100 p-3">
+        <div v-for="(count, status) in observations" :key="status" class="rounded-lg border border-gray-100 p-3">
           <p class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{{ status }}</p>
           <p class="mt-1 text-2xl font-bold text-ink">{{ count }}</p>
         </div>

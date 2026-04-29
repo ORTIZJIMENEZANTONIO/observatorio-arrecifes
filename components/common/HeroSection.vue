@@ -8,12 +8,10 @@ defineProps<{ compact?: boolean }>()
     :class="compact ? 'py-10 md:py-12' : 'py-12 md:py-16'"
   >
     <div class="hero-bg" aria-hidden="true">
+      <div class="hero-photo" />
+      <div class="hero-photo-tint" />
       <div class="hero-bathymetry" />
-      <div class="hero-tile-grid" />
       <div class="hero-caustics" />
-      <span class="lava-orb orb--p1" />
-      <span class="lava-orb orb--p2" />
-      <span class="lava-orb orb--p3" />
       <span class="lava-orb orb--c1" />
       <span class="lava-orb orb--c2" />
       <div class="hero-vignette" />
@@ -27,6 +25,8 @@ defineProps<{ compact?: boolean }>()
 <style scoped>
 /* ── Base ocean gradient — deeper Allen Coral Atlas-style abyss ── */
 .hero-section {
+  /* Override --hero-reef-image en cualquier página/sección para usar otra foto */
+  --hero-reef-image: url('/images/hero-reef.jpg');
   background:
     radial-gradient(ellipse 90% 60% at 50% 0%, rgba(11, 86, 109, 0.55) 0%, transparent 60%),
     linear-gradient(180deg, #02141C 0%, #052731 22%, #08475A 55%, #0E7490 85%, #0891B2 100%);
@@ -37,6 +37,37 @@ defineProps<{ compact?: boolean }>()
   inset: 0;
   overflow: hidden;
   z-index: 0;
+}
+
+/* ── Foto real de arrecife — protagonista ── */
+.hero-photo {
+  position: absolute;
+  inset: 0;
+  background-image:
+    var(--hero-reef-image),
+    url('https://images.unsplash.com/photo-1546026423-cc4642628d2b?auto=format&fit=crop&w=2400&q=80');
+  background-size: cover;
+  background-position: center 40%;
+  background-repeat: no-repeat;
+  z-index: 0;
+  filter: saturate(1.1) contrast(1.05);
+  animation: photo-pan 30s ease-in-out infinite alternate;
+}
+
+/* ── Tint teal sobre la foto para integrar con la paleta del proyecto ── */
+.hero-photo-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(2, 20, 28, 0.55) 0%, rgba(8, 71, 90, 0.35) 50%, rgba(2, 20, 28, 0.85) 100%),
+    linear-gradient(140deg, rgba(14, 116, 144, 0.35) 0%, rgba(8, 145, 178, 0.15) 100%);
+  mix-blend-mode: multiply;
+}
+
+@keyframes photo-pan {
+  0%   { transform: scale(1.04) translate3d(0, 0, 0); }
+  100% { transform: scale(1.08) translate3d(-12px, -8px, 0); }
 }
 
 /* ── Bathymetric isobaths — concentric topographic rings (CSS-only) ── */
@@ -65,23 +96,11 @@ defineProps<{ compact?: boolean }>()
       rgba(34, 211, 238, 0.04) 78px,
       rgba(34, 211, 238, 0.04) 79px
     );
-  z-index: 0;
+  z-index: 2;
   mix-blend-mode: screen;
-  opacity: 0.85;
+  opacity: 0.35;
   animation: drift-slow 60s linear infinite;
-}
-
-/* ── Satellite tile mosaic — inspired by Allen Coral Atlas 5m benthic classification ── */
-.hero-tile-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 64px 64px, 64px 64px;
-  z-index: 1;
-  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 50% 50%, black 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
-          mask-image: radial-gradient(ellipse 70% 80% at 50% 50%, black 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
+  pointer-events: none;
 }
 
 /* ── Surface caustics — light filtering from above ── */
@@ -89,11 +108,12 @@ defineProps<{ compact?: boolean }>()
   position: absolute;
   inset: -5% -5% 30% -5%;
   background:
-    radial-gradient(ellipse 60% 35% at 30% 0%, rgba(34, 211, 238, 0.22) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 35% at 30% 0%, rgba(34, 211, 238, 0.18) 0%, transparent 70%),
     radial-gradient(ellipse 40% 25% at 75% 5%, rgba(255, 255, 255, 0.10) 0%, transparent 65%);
-  z-index: 1;
+  z-index: 2;
   animation: caustic-drift 18s ease-in-out infinite;
   filter: blur(2px);
+  pointer-events: none;
 }
 
 /* ── Lava orbs (legacy, toned down so bathymetry breathes) ── */
@@ -145,9 +165,9 @@ defineProps<{ compact?: boolean }>()
 .hero-vignette {
   position: absolute;
   inset: auto 0 0 0;
-  height: 35%;
-  background: linear-gradient(180deg, transparent 0%, rgba(2, 20, 28, 0.6) 100%);
-  z-index: 3;
+  height: 40%;
+  background: linear-gradient(180deg, transparent 0%, rgba(2, 20, 28, 0.85) 100%);
+  z-index: 4;
   pointer-events: none;
 }
 
@@ -186,6 +206,7 @@ defineProps<{ compact?: boolean }>()
 @media (prefers-reduced-motion: reduce) {
   .lava-orb,
   .hero-caustics,
-  .hero-bathymetry { animation: none; }
+  .hero-bathymetry,
+  .hero-photo { animation: none; }
 }
 </style>

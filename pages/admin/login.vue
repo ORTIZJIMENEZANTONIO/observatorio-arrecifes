@@ -2,17 +2,27 @@
 definePageMeta({ layout: 'default' })
 
 const auth = useAuthStore()
+const route = useRoute()
 const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+
+// Si llega ?redirect=/admin/X, volvemos ahí tras login. Whitelist a /admin/*
+// para evitar open redirect.
+const redirectTarget = computed(() => {
+  const r = route.query.redirect
+  if (typeof r === 'string' && r.startsWith('/admin')) return r
+  return '/admin'
+})
 
 const handleLogin = async () => {
   error.value = ''
   loading.value = true
   try {
     await auth.login(email.value, password.value)
-    navigateTo('/admin')
+    // replace: true → no permite "volver atrás" al login después de autenticar
+    navigateTo(redirectTarget.value, { replace: true })
   } catch (e: any) {
     error.value = e?.data?.error?.message || e?.message || 'Error al iniciar sesión'
   } finally {
@@ -22,14 +32,14 @@ const handleLogin = async () => {
 
 onMounted(() => {
   auth.loadFromStorage()
-  if (auth.isAuthenticated) navigateTo('/admin')
+  if (auth.isAuthenticated) navigateTo(redirectTarget.value, { replace: true })
 })
 </script>
 
 <template>
   <div class="relative flex min-h-[80vh] items-center justify-center overflow-hidden">
     <div class="absolute inset-0 bg-gradient-to-br from-primary-50/60 via-surface to-secondary/5" />
-    <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0); background-size: 32px 32px;" />
+    <div class="bg-dot-pattern absolute inset-0 opacity-[0.03]" />
 
     <div class="relative z-10 w-full max-w-md px-4 animate-fade-in">
       <div class="card p-5 sm:p-8">

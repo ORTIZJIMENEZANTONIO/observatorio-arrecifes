@@ -14,11 +14,12 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (to.path.startsWith('/admin') && to.path !== '/admin/login') {
     if (!auth.isAuthenticated) {
-      return navigateTo('/admin/login')
+      // replace: true → la pantalla bloqueada no queda en el back-stack del navegador
+      return navigateTo({ path: '/admin/login', query: { redirect: to.fullPath } }, { replace: true })
     }
     for (const [route, perm] of Object.entries(routePermissions)) {
       if (to.path.startsWith(route) && !auth.hasPermission(perm)) {
-        return navigateTo('/admin')
+        return navigateTo('/admin', { replace: true })
       }
     }
   }

@@ -3,17 +3,17 @@
     <header class="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
       <div class="container-wide">
         <div class="flex h-14 items-center justify-between gap-3 sm:h-16">
-          <NuxtLink to="/" class="group flex shrink-0 items-center gap-2">
+          <NuxtLink to="/" class="group flex shrink-0 items-center gap-2.5">
             <div
-              class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-white shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3 group-active:scale-95"
+              class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-secondary to-coral text-white shadow-glow-coral transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3 group-active:scale-95"
             >
               <Icon name="lucide:waves" size="20" />
             </div>
             <div class="hidden sm:block">
-              <span class="text-sm font-bold leading-tight text-ink">Observatorio Arrecifes</span>
-              <span class="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+              <span class="text-sm font-bold leading-tight text-ink">Observatorio de Arrecifes</span>
+              <span class="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-coral-dark">
                 <span class="live-dot" />
-                México · En vivo
+                México · Vivo
               </span>
             </div>
           </NuxtLink>
@@ -23,8 +23,12 @@
               v-for="link in navLinks"
               :key="link.to"
               :to="link.to"
-              class="rounded-lg px-2.5 py-2 text-sm font-medium text-ink-muted transition-colors duration-200 hover:bg-primary-50 hover:text-primary xl:px-3"
-              active-class="!bg-primary-50 !text-primary !font-semibold"
+              :class="[
+                'rounded-lg px-2.5 py-2 text-sm font-medium transition-colors duration-200 xl:px-3',
+                isActive(link.to)
+                  ? 'bg-primary-50 text-primary font-semibold'
+                  : 'text-ink-muted hover:bg-primary-50 hover:text-primary',
+              ]"
             >
               {{ link.label }}
             </NuxtLink>
@@ -65,7 +69,15 @@
     <Transition name="mobile-drawer">
       <div v-if="mobileOpen" class="fixed right-0 top-0 z-[201] flex h-full w-72 flex-col bg-white shadow-2xl lg:hidden">
         <div class="flex items-center justify-between border-b border-gray-100 px-4 py-4">
-          <span class="text-sm font-bold text-ink">Menú</span>
+          <div class="flex items-center gap-2.5">
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-secondary to-coral text-white shadow-glow-coral">
+              <Icon name="lucide:waves" size="18" />
+            </div>
+            <div>
+              <span class="block text-sm font-bold leading-tight text-ink">Observatorio de Arrecifes</span>
+              <span class="block text-[10px] font-medium uppercase tracking-wider text-coral-dark">México · Vivo</span>
+            </div>
+          </div>
           <button class="flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted hover:bg-gray-100" aria-label="Cerrar menú" @click="mobileOpen = false">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -77,8 +89,12 @@
             v-for="link in navLinks"
             :key="link.to"
             :to="link.to"
-            class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-primary-50 hover:text-primary"
-            active-class="!bg-primary-50 !text-primary !font-semibold"
+            :class="[
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+              isActive(link.to)
+                ? 'bg-primary-50 text-primary font-semibold'
+                : 'text-ink-muted hover:bg-primary-50 hover:text-primary',
+            ]"
             @click="mobileOpen = false"
           >
             <Icon :name="link.icon" size="18" class="shrink-0" />
@@ -89,8 +105,12 @@
             v-for="link in secondaryLinks"
             :key="link.to"
             :to="link.to"
-            class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-primary-50 hover:text-primary"
-            active-class="!bg-primary-50 !text-primary !font-semibold"
+            :class="[
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+              isActive(link.to)
+                ? 'bg-primary-50 text-primary font-semibold'
+                : 'text-ink-muted hover:bg-primary-50 hover:text-primary',
+            ]"
             @click="mobileOpen = false"
           >
             <Icon :name="link.icon" size="18" class="shrink-0" />
@@ -133,6 +153,7 @@ const secondaryLinks = [
 ]
 
 const route = useRoute()
+const isActive = (to: string) => to === '/' ? route.path === '/' : route.path.startsWith(to)
 watch(() => route.path, () => { mobileOpen.value = false })
 </script>
 

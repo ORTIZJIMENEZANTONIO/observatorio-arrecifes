@@ -29,7 +29,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Arrecife de Puerto Morelos. Barrera arrecifal tipo franjeante con laguna arrecifal somera. Forma parte del SAM y enfrenta presiones combinadas de turismo, sargazo y la enfermedad de pérdida de tejido coralino (SCTLD).',
     hero: '/images/reefs/puerto-morelos.jpg',
-    imageCredit: 'CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: CONANP',
   },
   {
     id: 2,
@@ -53,7 +53,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Arrecifes de Cozumel. Pendiente arrecifal con corrientes intensas y alta diversidad. El anclaje de cruceros y el SCTLD han reducido la cobertura coralina viva por debajo del 20%.',
     hero: '/images/reefs/cozumel.jpg',
-    imageCredit: 'CONANP / Allen Coral Atlas',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: CONANP / Allen Coral Atlas',
   },
   {
     id: 3,
@@ -77,7 +77,7 @@ export const reefs: Reef[] = [
     description:
       'Reserva de la Biosfera Banco Chinchorro. Atolón coralino con la mayor extensión arrecifal del Atlántico mexicano. Reserva de la Biosfera y sitio Ramsar; alberga ~95 especies de coral.',
     hero: '/images/reefs/chinchorro.jpg',
-    imageCredit: 'CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: CONANP',
   },
   {
     id: 4,
@@ -101,7 +101,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Sistema Arrecifal Veracruzano (PNSAV). Conjunto de 28 arrecifes platafórmicos frente al puerto de Veracruz. Presiona el desarrollo portuario, descargas y sedimentos del río Jamapa-Cotaxtla.',
     hero: '/images/reefs/sav.jpg',
-    imageCredit: 'CONABIO',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: CONABIO',
   },
   {
     id: 5,
@@ -125,7 +125,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Arrecifes de Xcalak. Sección sur del SAM, frontera con Belice. Arrecife franjeante con baja presión turística y cobertura coralina relativamente alta.',
     hero: '/images/reefs/xcalak.jpg',
-    imageCredit: 'CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: CONANP',
   },
   {
     id: 6,
@@ -149,7 +149,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Cabo Pulmo. Único arrecife coralino vivo del Pacífico oriental. Tras la veda total establecida en 1995, la biomasa se recuperó >460%. Patrimonio Mundial UNESCO.',
     hero: '/images/reefs/cabo-pulmo.jpg',
-    imageCredit: 'UNESCO / CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: UNESCO / CONANP',
   },
   {
     id: 7,
@@ -173,7 +173,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Isla Isabel. Isla volcánica con comunidades coralinas de Pocillopora. Sitio Ramsar y refugio de aves marinas; presiones por flota pesquera regional.',
     hero: '/images/reefs/isla-isabel.jpg',
-    imageCredit: 'CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: CONANP',
   },
   {
     id: 8,
@@ -197,7 +197,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Revillagigedo. La mayor reserva marina totalmente protegida de Norteamérica (148,087 km²). Patrimonio Mundial UNESCO desde 2016. Comunidades coralinas en Socorro y Clarión.',
     hero: '/images/reefs/revillagigedo.jpg',
-    imageCredit: 'UNESCO / CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: UNESCO / CONANP',
   },
   {
     id: 9,
@@ -221,7 +221,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Arrecife Alacranes. Único atolón coralino del Golfo de México. ~140 km al norte de Progreso. Refugio crítico para tortugas y aves marinas.',
     hero: '/images/reefs/alacranes.jpg',
-    imageCredit: 'CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: CONANP',
   },
   {
     id: 10,
@@ -245,7 +245,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Huatulco. Comunidades coralinas en bahías protegidas (La Entrega, Cacaluta, San Agustín). Domina Pocillopora, con presión turística creciente.',
     hero: '/images/reefs/huatulco.jpg',
-    imageCredit: 'CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: CONANP',
   },
   {
     id: 11,
@@ -269,7 +269,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Isla Contoy. Frente al norte del Caribe mexicano, refugio de aves y zona de agregación del tiburón ballena. Acceso turístico restringido.',
     hero: '/images/reefs/contoy.jpg',
-    imageCredit: 'CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: CONANP',
   },
   {
     id: 12,
@@ -293,7 +293,7 @@ export const reefs: Reef[] = [
     description:
       'Parque Nacional Zona Marina Archipiélago de Espíritu Santo. Patrimonio Mundial UNESCO. Comunidades coralinas relictas dominadas por Pocillopora y Porites en muros rocosos.',
     hero: '/images/reefs/espiritu-santo.jpg',
-    imageCredit: 'UNESCO / CONANP',
+    imageCredit: 'Foto: Unsplash (ilustrativa) · Datos: UNESCO / CONANP',
   },
 ]
 

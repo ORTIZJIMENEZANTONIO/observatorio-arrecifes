@@ -52,7 +52,10 @@ export default defineNuxtConfig({
         { property: 'og:locale', content: 'es_MX' },
         { name: 'theme-color', content: '#0E7490' },
       ],
-      link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'apple-touch-icon', href: '/favicon.svg' },
+      ],
     },
   },
 

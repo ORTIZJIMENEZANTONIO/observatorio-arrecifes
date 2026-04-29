@@ -68,6 +68,13 @@
                   {{ formatBleachingAlert(reef.bleachingAlert) }}
                 </span>
               </div>
+              <span
+                v-if="reef.imageCredit"
+                class="absolute bottom-2 right-2 max-w-[85%] truncate rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white/90 backdrop-blur-sm"
+                :title="reef.imageCredit"
+              >
+                {{ reef.imageCredit }}
+              </span>
             </div>
 
             <div class="flex flex-1 flex-col p-4">
@@ -163,9 +170,25 @@
               </div>
             </div>
 
+            <div v-if="reefGallery.length" class="space-y-2">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-ink-muted">Galería</h3>
+              <div class="grid grid-cols-3 gap-2">
+                <a
+                  v-for="(img, idx) in reefGallery"
+                  :key="idx"
+                  :href="img"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="group relative block aspect-square overflow-hidden rounded-lg bg-gray-100"
+                >
+                  <img :src="img" :alt="`${selectedReef.name} ${idx + 1}`" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy" />
+                </a>
+              </div>
+            </div>
+
             <div class="rounded-xl border border-gray-100 bg-surface-cool p-4">
               <p class="text-xs font-semibold text-ink">Coordenadas</p>
-              <p class="mt-1 font-mono text-xs text-ink-muted">{{ selectedReef.lat.toFixed(4) }}, {{ selectedReef.lng.toFixed(4) }}</p>
+              <p class="mt-1 font-mono text-xs text-ink-muted">{{ Number(selectedReef.lat).toFixed(4) }}, {{ Number(selectedReef.lng).toFixed(4) }}</p>
               <NuxtLink :to="`/livemap?reef=${selectedReef.id}`" class="btn-outline btn-sm mt-3 w-full justify-center">
                 <Icon name="lucide:map" size="14" /> Ver en mapa vivo
               </NuxtLink>
@@ -202,6 +225,15 @@ const sortBy = ref<'name' | 'area' | 'cover' | 'alert'>('name')
 const currentPage = ref(1)
 const perPage = 9
 const selectedReef = ref<Reef | null>(null)
+
+const reefGallery = computed<string[]>(() => {
+  const r = selectedReef.value
+  if (!r) return []
+  const fromGallery = Array.isArray(r.gallery) ? r.gallery.filter(Boolean) : []
+  if (fromGallery.length) return fromGallery.slice(0, 3)
+  // Fallback: if no gallery, repeat hero so the section still feels populated.
+  return r.hero ? [r.hero] : []
+})
 
 const filtered = computed(() => {
   const list = [...store.filtered]

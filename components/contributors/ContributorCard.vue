@@ -1,0 +1,89 @@
+<template>
+  <article class="card-interactive group p-5">
+    <div class="flex items-start gap-4">
+      <div class="relative shrink-0">
+        <div
+          class="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-base font-bold text-white shadow-md"
+        >
+          {{ initials }}
+        </div>
+        <span
+          v-if="contributor.verified"
+          class="absolute -right-1 -bottom-1 flex h-6 w-6 items-center justify-center rounded-full bg-eco text-white shadow-md ring-2 ring-white"
+          title="Identidad verificada"
+        >
+          <Icon name="lucide:badge-check" size="14" />
+        </span>
+      </div>
+
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <h3 class="truncate text-base font-semibold text-ink">{{ contributor.displayName }}</h3>
+          <span :class="`badge ${tierBadgeClass(contributor.tier)} border`">
+            <Icon name="lucide:shield" size="12" class="mr-1" />
+            {{ formatTier(contributor.tier) }}
+          </span>
+        </div>
+        <p class="mt-0.5 truncate text-xs text-ink-muted">
+          {{ contributor.handle }}
+          <span v-if="contributor.affiliation"> · {{ contributor.affiliation }}</span>
+        </p>
+        <p v-if="contributor.bio" class="mt-2 line-clamp-2 text-sm text-slate-custom">
+          {{ contributor.bio }}
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-4 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+      <div>
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Reputación</p>
+        <p class="text-base font-bold text-primary">{{ formatNumber(contributor.reputationScore) }}</p>
+      </div>
+      <div>
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Validados</p>
+        <p class="text-base font-bold text-eco-dark">{{ contributor.validatedContributions }}</p>
+      </div>
+      <div>
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Calidad</p>
+        <p class="text-base font-bold text-ink">{{ contributor.averageQuality }}/100</p>
+      </div>
+    </div>
+
+    <div v-if="badges.length" class="mt-3 flex flex-wrap gap-1.5">
+      <span
+        v-for="b in badges.slice(0, 3)"
+        :key="b.id"
+        class="inline-flex items-center gap-1 rounded-full bg-coral-50 px-2 py-0.5 text-[10px] font-semibold text-coral-dark"
+        :title="b.description"
+      >
+        <Icon :name="b.icon || 'lucide:award'" size="11" />
+        {{ b.label }}
+      </span>
+      <span
+        v-if="badges.length > 3"
+        class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-ink-muted"
+      >
+        +{{ badges.length - 3 }}
+      </span>
+    </div>
+  </article>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { Contributor } from '~/types'
+
+const props = defineProps<{ contributor: Contributor }>()
+const { formatTier, tierBadgeClass, formatNumber } = useFormatters()
+
+const initials = computed(() =>
+  props.contributor.displayName
+    .split(' ')
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase(),
+)
+
+const badges = computed(() => props.contributor.badges ?? [])
+</script>

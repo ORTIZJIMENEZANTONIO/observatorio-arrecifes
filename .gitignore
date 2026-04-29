@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Nuxt build
+.nuxt/
+.output/
+.nitro/
+.cache/
+.data/
+dist/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage / tests
+coverage/
+*.lcov
+.nyc_output/
+.vitest-cache/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Misc
+*.tgz

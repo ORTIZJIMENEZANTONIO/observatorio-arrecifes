@@ -72,8 +72,8 @@ observatorio-arrecifes/
     css/main.css            # Estilos globales, sistema de cards/buttons/badges/forms,
                             # animaciones, tier-bronze/silver/gold/platinum/coral, live-dot
   components/
-    common/                 # AppHeader, AppFooter, HeroSection (lava-lamp océano),
-                            # SectionTitle, PaginationControls
+    common/                 # AppHeader, AppFooter, HeroSection (Allen-Atlas: batimetría +
+                            # tile-grid + caustics + lava orbs), SectionTitle, PaginationControls
     contributors/           # ContributorCard (avatar, tier badge, métricas, badges)
     map/                    # MapPanel.client.vue (Leaflet + circleMarker por estado)
     charts/                 # (placeholder) chart.client.vue components
@@ -368,9 +368,21 @@ reputationScore = (validatedContributions * 5)
 - **rounded-2xl** — cards/buttons/badges/inputs/cards
 - **Color en interacción** — hover tinta el borde a `primary/15`
 - **Pill badges** — `rounded-full` siempre
-- **Lava lamp hero** — `CommonHeroSection` con 5 orbs (3 cyan/teal + 2 coral/amber),
-  `mix-blend-mode: screen`, `blur(28px)`, GPU-accelerated `translate3d`. Home agrega 5 orbs
-  inline + reef-card stack flotante (3 cards animadas con float Y)
+- **Hero Allen Coral Atlas-inspired** — `CommonHeroSection` (y home inline) con 6 capas
+  apiladas (z-order de fondo a frente):
+  1. Gradiente abismal `#02141C → #052731 → #08475A → #0E7490 → #0891B2` con elipse radial
+     teal en la cresta superior.
+  2. `.hero-bathymetry` — 3 `repeating-radial-gradient` desde orígenes 18%/82%, 82%/18% y
+     50%/50% creando isobatas que se cruzan; drift 60s; `mix-blend-mode: screen`.
+  3. `.hero-tile-grid` — grid 64×64 px enmascarado con elipse radial, evoca las celdas
+     bentónicas 5 m del Allen Coral Atlas.
+  4. `.hero-caustics` — luz superior (cyan + blanco) con `caustic-drift` 18s y `blur(2px)`.
+  5. `.lava-orb` × 5 (3 cyan/teal + 2 coral/amber), `mix-blend-mode: screen`, `blur(36px)`,
+     GPU-accelerated `translate3d`, opacity 0.6 (atenuados para que la batimetría respire).
+  6. `.hero-vignette` — gradiente vertical inferior `rgba(2,20,28,0.6)` que enfoca al CTA.
+
+  Home agrega `reef-stack` flotante (3 cards con `floatY` 6-8s, z-index sobre las capas
+  de fondo).
 - **Live indicator** — `.live-dot` coral con `livePulse` 2s para datos en vivo
 - **Progressive disclosure** — CTAs revelan detalles en hover
 - **Lazy loading** — `loading="lazy"` en imágenes

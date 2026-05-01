@@ -121,10 +121,15 @@ export type LayerCategory =
 
 export type LayerFormat = 'wms' | 'wmts' | 'geotiff' | 'shapefile' | 'geojson' | 'kml' | 'csv' | 'cog'
 
+// Origen del binario: URL externa del proveedor o archivo subido por admin.
+export type LayerKind = 'external_url' | 'uploaded_file'
+
 export interface DataLayer {
-  id: string
+  id: string                            // slug estable (uso en frontend)
+  numericId?: number                    // id incremental del backend (ObsLayer.id)
   title: string
   description: string
+  kind?: LayerKind                      // default 'external_url'
   provider: DataProvider
   providerLabel: string
   category: LayerCategory
@@ -145,6 +150,26 @@ export interface DataLayer {
   wmsLayerName?: string                 // capa específica del WMS server
   tileUrlPattern?: string               // XYZ tile pattern alternative ({z}/{x}/{y})
   overlayOpacity?: number               // 0-1, default 0.7
+  // ── Archivo subido (sólo si kind = 'uploaded_file') ──
+  fileName?: string
+  fileSize?: number
+  mimeType?: string
+  visible?: boolean
+  archived?: boolean
+}
+
+// ── GeoJSON para conflictos (Point/LineString/Polygon + Multi*) ─────────────
+export type GeoJsonGeometryType =
+  | 'Point'
+  | 'LineString'
+  | 'Polygon'
+  | 'MultiPoint'
+  | 'MultiLineString'
+  | 'MultiPolygon'
+
+export interface GeoJsonGeometry {
+  type: GeoJsonGeometryType
+  coordinates: unknown
 }
 
 // ── User-contributed observations (citizen + drone + research) ─────────────
@@ -194,6 +219,23 @@ export interface ObservationAttachment {
 // Inspired by Mercado Libre / Rappi: tiers based on validated contributions,
 // quality, and consistency.
 export type ContributorTier = 'bronze' | 'silver' | 'gold' | 'platinum' | 'coral'
+
+// Escala reputacional editable desde /admin/tiers. `slug` es la clave estable
+// referenciada por `Contributor.tier`. Soporta tiers custom además de los 5 default.
+export interface Tier {
+  id?: number
+  slug: string                          // 'bronze' | 'silver' | … | custom
+  label: string                         // visible en UI (es-MX)
+  description?: string | null
+  minScore: number
+  maxScore?: number | null              // null = top tier sin tope
+  color: string                         // amber | slate | yellow | cyan | coral | eco | primary
+  requirements?: string | null
+  icon?: string | null                  // lucide icon name
+  sortOrder: number
+  visible?: boolean
+  archived?: boolean
+}
 
 export type ContributorRole =
   | 'citizen'
@@ -279,6 +321,9 @@ export interface SocioEnvironmentalConflict {
   resistance: string[]                  // e.g. "cooperativa pesquera", "comunidad maya"
   legalActions?: string[]
   mediaUrls: string[]                   // press, reports, videos
+  // Geometría espacial opcional (GeoJSON Feature.geometry).
+  // Si está presente, el conflicto se pinta directo en el mapa.
+  geometry?: GeoJsonGeometry | null
   contributorId?: number                // who submitted/curates
   visible?: boolean
   archived?: boolean
@@ -287,7 +332,10 @@ export interface SocioEnvironmentalConflict {
 // ── KPIs ──
 export interface Kpi {
   label: string
-  value: string
+  value: string                         // display string final (ej. "15k", "100%")
+  rawValue: number                      // valor numérico para animación count-up
+  decimals?: number                     // decimales en la animación (default 0)
+  divisor?: number                      // si rawValue se debe mostrar dividido (ej. /1000 → "k")
   unit?: string
   color: string                         // 'primary' | 'coral' | 'eco' | 'accent' | 'alert'
   delta?: string

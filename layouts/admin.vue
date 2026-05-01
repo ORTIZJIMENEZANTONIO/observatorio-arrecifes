@@ -8,7 +8,9 @@ const allNavItems = [
   { label: 'Arrecifes', to: '/admin/reefs', icon: 'lucide:waves', perm: 'manage_reefs' as const },
   { label: 'Observaciones', to: '/admin/observations', icon: 'lucide:camera', perm: 'review_submissions' as const },
   { label: 'Atlas', to: '/admin/conflicts', icon: 'lucide:alert-triangle', perm: 'manage_conflicts' as const },
+  { label: 'Capas', to: '/admin/layers', icon: 'lucide:layers', perm: 'manage_layers' as const },
   { label: 'Comunidad', to: '/admin/contributors', icon: 'lucide:users', perm: 'manage_contributors' as const },
+  { label: 'Escalas', to: '/admin/tiers', icon: 'lucide:medal', perm: 'manage_contributors' as const },
   { label: 'Usuarios', to: '/admin/usuarios', icon: 'lucide:user-cog', perm: 'manage_users' as const },
 ]
 

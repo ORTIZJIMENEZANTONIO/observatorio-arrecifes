@@ -2,7 +2,17 @@
 // existing mock data if the cercu-backend endpoint is unavailable, so the
 // observatorio remains usable offline / before deployment.
 
-import type { Reef, SocioEnvironmentalConflict, Contributor, Observation } from '~/types'
+import type { Reef, SocioEnvironmentalConflict, Contributor, Observation, DataLayer, Tier } from '~/types'
+
+// Capa serializada por el backend (ObsLayer).
+// id numérico + slug (usamos slug como id estable en el frontend).
+type BackendLayer = Omit<DataLayer, 'id'> & { id: number; slug: string }
+
+const mapBackendLayer = (l: BackendLayer): DataLayer => ({
+  ...(l as unknown as DataLayer),
+  id: l.slug,
+  numericId: l.id,
+})
 
 type ListResponse<T> = { success: true; items?: T[]; data?: T[]; pagination?: any }
 
@@ -48,9 +58,34 @@ export const useBackendSync = () => {
     }
   }
 
-  const syncAll = async () => {
-    await Promise.all([syncReefs(), syncConflicts(), syncContributors(), syncObservations()])
+  const syncLayers = async () => {
+    const items = await fetchList<BackendLayer>('/layers?limit=200')
+    if (items?.length) useLayersStore().setLayers(items.map(mapBackendLayer))
   }
 
-  return { syncReefs, syncConflicts, syncContributors, syncObservations, syncAll }
+  const syncTiers = async () => {
+    const items = await fetchList<Tier>('/tiers')
+    if (items?.length) useTiersStore().setTiers(items as Tier[])
+  }
+
+  const syncAll = async () => {
+    await Promise.all([
+      syncReefs(),
+      syncConflicts(),
+      syncContributors(),
+      syncObservations(),
+      syncLayers(),
+      syncTiers(),
+    ])
+  }
+
+  return {
+    syncReefs,
+    syncConflicts,
+    syncContributors,
+    syncObservations,
+    syncLayers,
+    syncTiers,
+    syncAll,
+  }
 }

@@ -5,6 +5,8 @@ const routePermissions: Record<string, AdminPermission> = {
   '/admin/observations': 'review_submissions',
   '/admin/conflicts': 'manage_conflicts',
   '/admin/contributors': 'manage_contributors',
+  '/admin/tiers': 'manage_contributors',
+  '/admin/layers': 'manage_layers',
   '/admin/usuarios': 'manage_users',
 }
 

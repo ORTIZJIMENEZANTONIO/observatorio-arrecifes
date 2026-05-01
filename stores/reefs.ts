@@ -54,7 +54,11 @@ export const useReefsStore = defineStore('reefs', () => {
   })
 
   const totalCount = computed(() => publicReefs.value.length)
-  const totalArea = computed(() => publicReefs.value.reduce((acc, r) => acc + r.area, 0))
+  // Coerción defensiva: TypeORM/MySQL devuelve `area` (decimal) como string. Sin
+  // Number() la reduce concatena strings en lugar de sumar.
+  const totalArea = computed(() =>
+    publicReefs.value.reduce((acc, r) => acc + (Number(r.area) || 0), 0),
+  )
   const states = computed(() => {
     const set = new Set<CoastalState>()
     publicReefs.value.forEach((r) => set.add(r.state))

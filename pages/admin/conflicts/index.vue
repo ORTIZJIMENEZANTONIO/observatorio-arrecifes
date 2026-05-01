@@ -76,6 +76,9 @@ const toggle = async (c: SocioEnvironmentalConflict, key: 'visible' | 'archived'
 }
 
 // ── Editor ──
+// `geoMode`: 'none' (sólo via reefIds) | 'point' (lat/lng simple) | 'geojson' (GeoJSON pegado).
+type GeoMode = 'none' | 'point' | 'geojson'
+
 type ConflictForm = {
   title: string; summary: string; fullStory: string
   state: string; intensity: string; status: string
@@ -83,6 +86,10 @@ type ConflictForm = {
   threats: string; affectedCommunities: string; affectedSpecies: string
   drivers: string; resistance: string; legalActions: string; mediaUrls: string
   startedAt: string
+  geoMode: GeoMode
+  geoLat: number | null
+  geoLng: number | null
+  geoJsonText: string
   visible: boolean; archived: boolean
 }
 
@@ -93,6 +100,10 @@ const blankForm = (): ConflictForm => ({
   threats: '', affectedCommunities: '', affectedSpecies: '',
   drivers: '', resistance: '', legalActions: '', mediaUrls: '',
   startedAt: '',
+  geoMode: 'none',
+  geoLat: null,
+  geoLng: null,
+  geoJsonText: '',
   visible: true, archived: false,
 })
 
@@ -105,6 +116,20 @@ const openCreate = () => { editingId.value = 0; form.value = blankForm(); formEr
 const openEdit = (c: SocioEnvironmentalConflict) => {
   editingId.value = c.id
   formError.value = ''
+  // Detectar modo de geometría existente.
+  const g = (c as any).geometry as { type: string; coordinates: any } | null | undefined
+  let geoMode: GeoMode = 'none'
+  let geoLat: number | null = null
+  let geoLng: number | null = null
+  let geoJsonText = ''
+  if (g && g.type === 'Point' && Array.isArray(g.coordinates) && g.coordinates.length === 2) {
+    geoMode = 'point'
+    geoLng = Number(g.coordinates[0])
+    geoLat = Number(g.coordinates[1])
+  } else if (g && g.type) {
+    geoMode = 'geojson'
+    geoJsonText = JSON.stringify(g, null, 2)
+  }
   form.value = {
     title: c.title || '', summary: c.summary || '', fullStory: c.fullStory || '',
     state: c.state || '', intensity: c.intensity || 'medium', status: c.status || 'ongoing',
@@ -117,6 +142,10 @@ const openEdit = (c: SocioEnvironmentalConflict) => {
     legalActions: (c.legalActions || []).join(', '),
     mediaUrls: (c.mediaUrls || []).join(', '),
     startedAt: c.startedAt ? String(c.startedAt).slice(0, 10) : '',
+    geoMode,
+    geoLat,
+    geoLng,
+    geoJsonText,
     visible: c.visible ?? true,
     archived: c.archived ?? false,
   }
@@ -132,6 +161,39 @@ const save = async () => {
   const splitCsv = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean)
   const splitNums = (s: string) => splitCsv(s).map(Number).filter((n) => Number.isFinite(n))
   const f = form.value
+  // Construir geometry según modo seleccionado. null = sin geometría propia.
+  let geometry: { type: string; coordinates: any } | null = null
+  if (f.geoMode === 'point') {
+    if (f.geoLat === null || f.geoLng === null) {
+      formError.value = 'Para geometría tipo punto debes capturar latitud y longitud.'
+      saving.value = false
+      return
+    }
+    if (Math.abs(f.geoLat) > 90 || Math.abs(f.geoLng) > 180) {
+      formError.value = 'Coordenadas fuera de rango (lat ±90, lng ±180).'
+      saving.value = false
+      return
+    }
+    geometry = { type: 'Point', coordinates: [Number(f.geoLng), Number(f.geoLat)] }
+  } else if (f.geoMode === 'geojson') {
+    const txt = f.geoJsonText.trim()
+    if (txt) {
+      try {
+        const parsed = JSON.parse(txt)
+        const validTypes = ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon']
+        if (!parsed || !validTypes.includes(parsed.type) || !Array.isArray(parsed.coordinates)) {
+          formError.value = 'GeoJSON inválido. Esperado: { "type": "Point|LineString|Polygon|...", "coordinates": [...] }'
+          saving.value = false
+          return
+        }
+        geometry = { type: parsed.type, coordinates: parsed.coordinates }
+      } catch {
+        formError.value = 'GeoJSON con sintaxis inválida.'
+        saving.value = false
+        return
+      }
+    }
+  }
   const payload: any = {
     title: f.title.trim(), summary: f.summary.trim(),
     fullStory: f.fullStory.trim() || null,
@@ -145,6 +207,7 @@ const save = async () => {
     legalActions: splitCsv(f.legalActions),
     mediaUrls: splitCsv(f.mediaUrls),
     startedAt: f.startedAt || null,
+    geometry,
     visible: f.visible, archived: f.archived,
   }
   try {
@@ -377,6 +440,66 @@ onMounted(load)
               <div class="form-group"><label class="form-label">Acciones legales</label><input v-model="form.legalActions" type="text" class="input w-full" /></div>
               <div class="form-group"><label class="form-label">URLs medios</label><input v-model="form.mediaUrls" type="text" class="input w-full" /></div>
             </div>
+
+            <!-- ── Geometría espacial ── -->
+            <section class="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
+              <h4 class="mb-3 text-xs font-bold uppercase tracking-wider text-primary">Ubicación geográfica</h4>
+              <div class="form-group">
+                <label class="form-label">Modo</label>
+                <div class="flex flex-wrap gap-3">
+                  <label class="flex items-center gap-2 text-sm">
+                    <input v-model="form.geoMode" type="radio" value="none" /> Sin geometría propia (vía arrecifes)
+                  </label>
+                  <label class="flex items-center gap-2 text-sm">
+                    <input v-model="form.geoMode" type="radio" value="point" /> Punto (lat / lng)
+                  </label>
+                  <label class="flex items-center gap-2 text-sm">
+                    <input v-model="form.geoMode" type="radio" value="geojson" /> GeoJSON
+                  </label>
+                </div>
+                <p class="form-hint">
+                  Si no defines una geometría, el conflicto se ubica en el mapa por los arrecifes que afecta (`reefIds`).
+                </p>
+              </div>
+
+              <div v-if="form.geoMode === 'point'" class="grid grid-cols-2 gap-3">
+                <div class="form-group">
+                  <label class="form-label">Latitud (-90 a 90)</label>
+                  <input
+                    :value="form.geoLat ?? ''"
+                    type="number"
+                    step="0.0001"
+                    min="-90"
+                    max="90"
+                    class="input w-full"
+                    @input="(e: Event) => form.geoLat = (e.target as HTMLInputElement).value === '' ? null : Number((e.target as HTMLInputElement).value)"
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Longitud (-180 a 180)</label>
+                  <input
+                    :value="form.geoLng ?? ''"
+                    type="number"
+                    step="0.0001"
+                    min="-180"
+                    max="180"
+                    class="input w-full"
+                    @input="(e: Event) => form.geoLng = (e.target as HTMLInputElement).value === '' ? null : Number((e.target as HTMLInputElement).value)"
+                  />
+                </div>
+              </div>
+
+              <div v-else-if="form.geoMode === 'geojson'" class="form-group">
+                <label class="form-label">GeoJSON Geometry (Point / LineString / Polygon / Multi*)</label>
+                <textarea
+                  v-model="form.geoJsonText"
+                  rows="6"
+                  class="input w-full font-mono text-xs"
+                  placeholder='{"type":"Polygon","coordinates":[[[-87.0,18.5],[-87.0,18.7],[-86.8,18.7],[-86.8,18.5],[-87.0,18.5]]]}'
+                />
+                <p class="form-hint">Pega sólo el objeto `geometry` (no la `Feature` completa).</p>
+              </div>
+            </section>
 
             <div class="flex gap-4 border-t border-gray-100 pt-4">
               <label class="flex items-center gap-2 text-sm">

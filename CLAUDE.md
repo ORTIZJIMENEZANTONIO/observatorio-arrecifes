@@ -73,7 +73,8 @@ observatorio-arrecifes/
                             # animaciones, tier-bronze/silver/gold/platinum/coral, live-dot
   components/
     common/                 # AppHeader, AppFooter, HeroSection (Allen-Atlas: batimetría +
-                            # tile-grid + caustics + lava orbs), SectionTitle, PaginationControls
+                            # tile-grid + caustics + lava orbs), SectionTitle, PaginationControls,
+                            # CountUp.vue (animación de números con easeOutExpo + reduced-motion)
     contributors/           # ContributorCard (avatar, tier badge, métricas, badges)
     map/                    # MapPanel.client.vue (Leaflet + circleMarker por estado)
     charts/                 # (placeholder) chart.client.vue components
@@ -84,15 +85,21 @@ observatorio-arrecifes/
     useMapConfig.ts         # Default center MX (21,-94 z=5), 3 basemaps (Imagery/Ocean/Streets),
                             # labels overlay Esri Reference, marker style por estado
     useApi.ts               # $fetch wrapper con baseURL cercu-backend + token Bearer
+    useCountUp.ts           # Animación count-up genérica (RAF + easeOutExpo + reduced-motion).
+                            # Usada por <CommonCountUp> en hero, KPIs y cards de alertas
+    useBackendSync.ts       # Orquesta fetch de reefs/conflicts/contributors/observations/layers
+                            # desde cercu-backend con fallback silencioso al mock
   data/
     reefs.ts                # 12 arrecifes mexicanos (Caribe + GoM + Pacífico). reefSummary
-    layers.ts               # 13 capas abiertas (NOAA CRW, NASA MODIS/PACE, ESA Sentinel-2,
-                            # GEBCO, CONABIO ANP+coral, CONANP, GFW, NOAA SaWS, INEGI)
-    contributors.ts         # 8 colaboradores con tiers (bronze→coral) + tierConfig
+    layers.ts               # 13 capas abiertas mock (NOAA CRW, NASA MODIS/PACE, ESA Sentinel-2,
+                            # GEBCO, CONABIO ANP+coral, CONANP, GFW, NOAA SaWS, INEGI). En prod
+                            # se sobrescriben con `ObsLayer` del backend vía useBackendSync
+    contributors.ts         # 8 colaboradores con tiers (bronze→coral) + tierConfig (mock).
+                            # Las escalas ahora viven en `ObsTier` del backend
     observations.ts         # 6 aportes en distintos estados (validated/in_review/pending)
     conflicts.ts            # 6 casos socioambientales (Tren Maya, cruceros, FONATUR, etc.)
     bleaching-alerts.ts     # Snapshot NOAA CRW por reefId (DHW, SST, anomaly, level)
-    kpis.ts                 # KPIs computados sobre los datos mock
+    kpis.ts                 # KPIs computados (incluyen `rawValue: number` para count-up)
   deploy/
     nginx.conf              # server block SSL + redirect 80→443 (arrecifes.cercu.com.mx)
     ecosystem.config.cjs    # PM2 app arrecifes :3007 con env vars de producción
@@ -105,9 +112,12 @@ observatorio-arrecifes/
     admin.ts                # protege /admin/* + mapeo ruta → permiso
   pages/
     index.vue               # Home: hero océano + reef-card stack flotante + KPIs bento +
-                            # 3 features + alertas live + top contributors + CTA
-    livemap.vue             # Mapa Google-Earth-style: basemap switcher (Satélite/Batimetría/
-                            # Mapa), buscador con flyTo, leyenda, panel WMS con badges Live/Catálogo
+                            # 3 features (cards centradas) + alertas live + top contributors + CTA.
+                            # Hero stats e indicadores numéricos animan con <CommonCountUp> al cargar
+    livemap.vue             # Mapa Google-Earth-style: basemap switcher (Satélite/Batimetría/Mapa
+                            # + Globo dinámico earth.nullschool con iframe + selectores de capa,
+                            # proyección y vista), buscador con flyTo, leyenda, panel WMS con
+                            # badges Live/Catálogo
     inventory/index.vue     # Cards 12 arrecifes + filtros + sort + drawer detalle
     atlas/index.vue         # Atlas EJAtlas-style: drivers vs resistance + drawer detalle
     data-sources/index.vue  # Catálogo de capas con filtros + atribuciones + descargas
@@ -116,6 +126,9 @@ observatorio-arrecifes/
                             # validación → cola de revisión
     observations/index.vue  # Lista de aportes con estados + tipo + crédito + calidad
     about/index.vue         # Misión, fuentes, sistema de reputación, validación, licencias
+    admin/                  # CRUD admin: reefs, observations, conflicts (con geometry GeoJSON),
+                            # contributors, tiers (escalas), layers (con upload de archivos),
+                            # usuarios. Layout `admin.vue`, middleware `admin`
   stores/
     reefs.ts                # publicReefs (filtra visible/archived) + filtros + setReefs +
                             # localStorage overrides (obs-arrecifes-reef-overrides)
@@ -124,8 +137,9 @@ observatorio-arrecifes/
     contributors.ts         # leaderboard, filtros por role/tier
     conflicts.ts            # publicConflicts + filtros intensidad/estado/amenaza
   types/
-    index.ts                # Reef, DataLayer, Contributor, Observation,
-                            # SocioEnvironmentalConflict, BleachingAlert, AdminUser, Kpi
+    index.ts                # Reef, DataLayer (+ LayerKind, file fields), Contributor, Observation,
+                            # SocioEnvironmentalConflict (+ geometry GeoJSON), BleachingAlert,
+                            # AdminUser, Kpi (+ rawValue numérico), GeoJsonGeometry
   error.vue                 # 404 / error page con CTA a home y mapa
   app.vue                   # NuxtLayout + NuxtPage
 ```
@@ -159,7 +173,9 @@ no responde:
 | Conflictos | `GET /observatory/arrecifes/conflicts?limit=100` | `useConflictsStore().conflicts` |
 | Comunidad | `GET /observatory/arrecifes/contributors?limit=100` | `useContributorsStore().contributors` |
 | Observaciones | `GET /observatory/arrecifes/observations?limit=100` | `useObservationsStore().observations` |
+| Capas | `GET /observatory/arrecifes/layers?limit=200` | `useLayersStore().setLayers()` (mapea `slug → id`) |
 | Alertas blanqueamiento | `GET /observatory/arrecifes/alerts/bleaching?latestPerReef=true` | `(pending)` |
+| Escalas (tiers) | `GET /observatory/arrecifes/tiers` | `(pending — sin store dedicado aún)` |
 
 ### Environment Variables
 
@@ -205,8 +221,13 @@ type LayerCategory = 'thermal_stress' | 'bathymetry' | 'benthic_habitat' | 'wate
                      'protected_areas' | 'land_use' | 'fishing_pressure' | 'community_observations'
 type LayerFormat = 'wms' | 'wmts' | 'geotiff' | 'shapefile' | 'geojson' | 'kml' | 'csv' | 'cog'
 
+type LayerKind = 'external_url' | 'uploaded_file'
+
 interface DataLayer {
-  id: string; title: string; description: string
+  id: string                                       // slug estable (frontend)
+  numericId?: number                               // ObsLayer.id del backend
+  title: string; description: string
+  kind?: LayerKind                                 // default 'external_url'
   provider: DataProvider; providerLabel: string; category: LayerCategory; format: LayerFormat
   resolution?: string; cadence?: string; coverage: 'global'|'regional'|'national'
   license: string; attribution: string             // ATRIBUCIÓN OBLIGATORIA
@@ -217,6 +238,22 @@ interface DataLayer {
   wmsUrl?: string; wmsLayerName?: string
   tileUrlPattern?: string
   overlayOpacity?: number                          // 0-1, default 0.7
+  // ── Archivo subido (sólo si kind = 'uploaded_file') ──
+  fileName?: string; fileSize?: number; mimeType?: string
+  visible?: boolean; archived?: boolean
+}
+
+// GeoJSON para conflictos con ubicación propia (en lugar de via reefIds[]).
+type GeoJsonGeometryType = 'Point' | 'LineString' | 'Polygon' |
+                           'MultiPoint' | 'MultiLineString' | 'MultiPolygon'
+interface GeoJsonGeometry { type: GeoJsonGeometryType; coordinates: unknown }
+
+// KPIs ahora incluyen rawValue numérico para animación count-up del componente
+// <CommonCountUp>. `value` queda como string final (ej. "15k", "100%").
+interface Kpi {
+  label: string; value: string; rawValue: number
+  decimals?: number; divisor?: number; unit?: string
+  color: string; delta?: string; icon?: string; to?: string
 }
 
 type ObservationType = 'satellite_image' | 'drone_flight' | 'underwater_photo' |
@@ -255,8 +292,21 @@ interface SocioEnvironmentalConflict {
   startedAt; updatedAt
   drivers: string[]                  // quién impulsa
   resistance: string[]               // quién resiste
-  legalActions?: string[]; mediaUrls: string[]; contributorId?
+  legalActions?: string[]; mediaUrls: string[]
+  geometry?: GeoJsonGeometry | null  // ubicación propia opcional (Point/Polygon/...)
+  contributorId?
   visible?; archived?
+}
+
+// Escala reputacional (Bronce → Coral). Editable desde /admin/tiers.
+// `slug` es la clave estable referenciada por `Contributor.tier`.
+interface Tier {
+  id: number; slug: string                          // 'bronze' | 'silver' | 'gold' | 'platinum' | 'coral' | …
+  label: string; description: string | null
+  minScore: number; maxScore: number | null         // null = top tier (sin tope)
+  color: string                                     // amber|slate|yellow|cyan|coral|eco|primary
+  requirements: string | null; icon: string | null  // lucide icon name
+  sortOrder: number; visible: boolean; archived: boolean
 }
 ```
 
@@ -332,7 +382,8 @@ Cada `Reef` tiene 1 `hero` (cards/livemap) + hasta 3 `gallery[]` (drawer detalle
 ## Sistema de reputación (red de colaboradores)
 
 Inspirado en Mercado Libre/Rappi: rango basado en aportes validados, calidad y consistencia
-(no solo volumen).
+(no solo volumen). Las escalas viven en la tabla `obs_tiers` y se editan desde
+`/admin/tiers`. Defaults sembrados por `seeds/arrecifes.seed.ts`:
 
 | Rango | Umbral | Requisitos típicos |
 |-------|--------|--------------------|
@@ -341,6 +392,11 @@ Inspirado en Mercado Libre/Rappi: rango basado en aportes validados, calidad y c
 | Oro | 500–699 pts | 60+ aportes, calidad ≥75%, 3+ meses activo |
 | Platino | 700–999 pts | 90+ aportes, calidad ≥85%, 6+ meses activo |
 | **Coral** | 1000+ pts | **Top 1%**. Identidad y trayectoria verificadas |
+
+`Contributor.tier` referencia el `slug` de `ObsTier`. Cambiar el slug de una escala
+existente puede dejar colaboradores huérfanos — la UI admin permite editar etiqueta,
+descripción y umbrales pero deshabilita el slug tras crear. El backend bloquea el
+borrado físico si hay `Contributor` usando esa escala (debe archivarse, `archived=true`).
 
 ### Validación de aportes
 
@@ -494,9 +550,17 @@ Mapa vivo | Arrecifes | Atlas | Datos | Comunidad | [Contribuir →]
 ```
 
 - **Mapa vivo** (`/livemap`) — Leaflet full-screen estilo Google Earth: basemap
-  switcher (Satélite Esri World Imagery / Batimetría / Mapa OSM) + labels overlay
-  toggleable, buscador con `flyTo`, popups con hero image, halo pulsante en
-  alertas críticas, panel de capas con render WMS real (badges `Live` / `Catálogo`)
+  switcher con 4 opciones (Satélite Esri World Imagery / Batimetría / Mapa OSM /
+  **Globo dinámico** earth.nullschool en iframe) + labels overlay toggleable,
+  buscador con `flyTo`, popups con hero image, halo pulsante en alertas críticas,
+  panel de capas con render WMS real (badges `Live` / `Catálogo`).
+  - **Globo dinámico** (`viewMode === 'globe'`): reemplaza el `MapPanel` Leaflet por
+    un iframe a `earth.nullschool.net` con 3 selectores: capa (vientos / corrientes /
+    SST / olas / presión MSL / agua precipitable / CAPE / aerosoles PM2.5), proyección
+    (Globo 3D / equirectangular / Mercator / Winkel III / Patterson / azimutal) y vista
+    (México / Caribe / Pacífico / Golfo / SAM / Global). URL reactiva via computed
+    `nullschoolUrl`. Atribución a Cameron Beccario y link "Abrir en nueva pestaña" como
+    fallback (algunos navegadores bloquean iframes cross-origin)
 - **Arrecifes** (`/inventory`) — cards + filtros + sort + drawer detalle (antes "Inventario")
 - **Atlas** (`/atlas`) — conflictos socioambientales (estilo EJAtlas)
 - **Datos** (`/data-sources`) — catálogo de capas, atribuciones, descargas (antes "Capas y datos")
@@ -614,9 +678,15 @@ useConflictsStore()       // publicConflicts, filtered, findById
 
 ### Endpoints v1 (✅ implementado en `cercu-backend`)
 
-**Módulo:** `src/modules/observatory/arrecifes/` (controller + service + routes + validation).
-**Entidades:** `ObsReef`, `ObsConflict`, `ObsContributor`, `ObsObservation`, `ObsBleachingAlert`
+**Módulo:** `src/modules/observatory/arrecifes/` (controller + service + routes + validation
++ `arrecifes.upload.ts` con multer para capas).
+**Entidades:** `ObsReef`, `ObsConflict` (con `geometry: json` GeoJSON opcional),
+`ObsContributor`, `ObsObservation`, `ObsBleachingAlert`, `ObsLayer`, `ObsTier`
 en `src/entities/observatory/`. Auto-sync en dev, no requiere migración manual.
+
+⚠️ **Bug TypeORM resuelto:** combinar `@Column({ unique: true })` + `@Index()` en la
+misma columna genera dos índices con el mismo nombre y revienta el `CREATE TABLE` con
+`Duplicate key name`. `unique: true` ya crea el índice — basta con uno.
 
 **Públicos** (sin auth, sólo `visible=true && archived=false`):
 
@@ -631,6 +701,11 @@ GET  /observatory/arrecifes/observations?reefId=&type=          # solo validated
 GET  /observatory/arrecifes/observations/:id
 POST /observatory/arrecifes/observations                        # ciudadano → pending
 GET  /observatory/arrecifes/alerts/bleaching?latestPerReef=true
+GET  /observatory/arrecifes/layers?provider=&category=&kind=    # capas activas
+GET  /observatory/arrecifes/layers/:id                          # acepta id numérico o slug
+GET  /observatory/arrecifes/layers/:id/download                 # archivo o redirect 302
+GET  /observatory/arrecifes/tiers                               # escalas reputacionales
+GET  /observatory/arrecifes/tiers/:id                           # acepta id o slug
 ```
 
 **Admin** (Bearer JWT — `ObservatoryAdmin` con `arrecifes` en `observatories[]`):
@@ -638,15 +713,24 @@ GET  /observatory/arrecifes/alerts/bleaching?latestPerReef=true
 ```
 GET    /observatory/arrecifes/admin/summary                     # dashboard counts
 CRUD   /observatory/arrecifes/admin/reefs[/:id]
-CRUD   /observatory/arrecifes/admin/conflicts[/:id]
+CRUD   /observatory/arrecifes/admin/conflicts[/:id]             # body acepta `geometry`
 CRUD   /observatory/arrecifes/admin/contributors[/:id]
 GET    /observatory/arrecifes/admin/observations[/:id]
 POST   /observatory/arrecifes/admin/observations/:id/review     # body: {status, qualityScore?, reviewerNotes?}
 DELETE /observatory/arrecifes/admin/observations/:id
 POST   /observatory/arrecifes/admin/alerts/bleaching            # ingest NOAA CRW
+CRUD   /observatory/arrecifes/admin/layers[/:id]
+POST   /observatory/arrecifes/admin/layers/:id/upload           # multipart "file" (≤50 MB)
+CRUD   /observatory/arrecifes/admin/tiers[/:id]
 POST   /observatory/auth/login                                  # JWT 15min, refresh 7d
 GET    /observatory/auth/me
 ```
+
+**Storage de capas subidas:** `cercu-backend/uploads/layers/{uuid}.{ext}`, servido por
+`app.use('/uploads', express.static(...))` y proxy nginx `/api/` → :3003. La descarga
+pasa por `GET /layers/:id/download` que devuelve el archivo con `Content-Disposition:
+attachment` o redirect 302 a la URL externa del proveedor (NOAA/CONABIO/...). Migrar a
+S3/Spaces después cambia sólo `resolveLayerDownload()` en el service — la API no rompe.
 
 ### Sistema de revisión (review workflow)
 
@@ -758,8 +842,16 @@ Páginas:
 - `/admin` — dashboard con summary (reefs, conflicts, contributors, observations)
 - `/admin/reefs` — CRUD completo + galería + filtros: Litoral, Estatus, Protección, Visibilidad
 - `/admin/observations` — tabla cola de revisión + filtros: Estado, Tipo, Reef, Colaborador
-- `/admin/conflicts` — CRUD completo + filtros: Estado, Intensidad, Status, Visibilidad
+- `/admin/conflicts` — CRUD completo + sección "Ubicación geográfica" (3 modos: sin
+  geometría / Punto lat-lng / GeoJSON pegado, valida tipo y rangos) + filtros: Estado,
+  Intensidad, Status, Visibilidad
 - `/admin/contributors` — CRUD completo + filtros: Rol, Tier, Verificación, Perfil público
+- `/admin/tiers` — CRUD de **escalas reputacionales** (Bronce → Coral). Slug bloqueado
+  tras crear; eliminar bloqueado si hay colaboradores usando esa escala (archivar en su
+  lugar). Permiso `manage_contributors`
+- `/admin/layers` — CRUD de **capas de datos** + botón **upload** por fila (multer
+  FormData, 50 MB, GeoJSON/Shapefile zip/GeoTIFF/KML/KMZ/CSV). Modal por secciones:
+  identidad, origen+clasificación, licencia, URLs, render WMS/tile. Permiso `manage_layers`
 - `/admin/usuarios` — lista de admins (solo lectura, los crea el seed por seguridad)
 
 Composables/stores:
@@ -786,11 +878,16 @@ Cada página admin debe declarar `definePageMeta({ layout: 'admin', middleware: 
 
 ## Roadmap (v2+)
 
-- **CRUD UI completo** — formularios de creación/edición para reefs, conflicts y
-  contributors (actualmente sólo toggles visible/archived).
+- **Render de geometría de conflictos en mapa** — `/atlas` y `/livemap` deben pintar
+  `conflict.geometry` con `L.geoJSON()` (Point/LineString/Polygon) cuando esté presente,
+  cayendo a `reefIds[]` cuando no.
 - **Panel de revisión enriquecido** — adjuntos de aportes (galería de imágenes/video)
   desde cola de observaciones
 - **Cron de capas** — pull NOAA/NASA/ESA cada N horas vía cercu-backend
+- **Migrar storage de capas a S3/Spaces** — actualmente disco local del VPS
+  (`uploads/layers/`); cambiar sólo `resolveLayerDownload()` en `arrecifes.service.ts`
+- **Drag-and-drop / draw-on-map para `geometry`** — sustituir el textarea de GeoJSON
+  pegado en `/admin/conflicts` por un editor leaflet-draw inline
 - **WebSocket** — push de alertas críticas de blanqueamiento al mapa vivo
 - **Time slider** — comparativa multitemporal de cobertura coralina y SST
 - **API pública** — endpoints `/public/v1/...` con rate limit y CC BY 4.0

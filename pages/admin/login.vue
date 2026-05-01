@@ -1,5 +1,8 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+// pageTransition: false → empata con todas las páginas /admin/* y evita el warn de Vue
+// "Slot 'default' invoked outside of the render function" al saltar de transición habilitada
+// (login con layout default) a transición deshabilitada (admin layout) tras autenticar.
+definePageMeta({ layout: 'default', pageTransition: false })
 
 const auth = useAuthStore()
 const route = useRoute()

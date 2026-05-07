@@ -77,18 +77,35 @@ observatorio-arrecifes/
                             # CountUp.vue (animación de números con easeOutExpo + reduced-motion)
     contributors/           # ContributorCard (avatar, tier badge, métricas, badges)
     map/                    # MapPanel.client.vue (Leaflet + circleMarker por estado)
-    charts/                 # (placeholder) chart.client.vue components
+    charts/                 # Wrappers de Chart.js + vue-chartjs (`.client.vue`):
+                            # BarChart, LineChart, DoughnutChart, ScatterChart.
+                            # Cada uno registra los `Chart.register(...)` propios y expone
+                            # props `:data` y `:options`. Auto-importados como ChartsXxx
     home/                   # (placeholder) home-only sections
   composables/
     useFormatters.ts        # es-MX locale + maps de tipos a etiquetas (es), badge classes
     useScrollReveal.ts      # IntersectionObserver para .reveal/.is-visible
     useMapConfig.ts         # Default center MX (21,-94 z=5), 3 basemaps (Imagery/Ocean/Streets),
                             # labels overlay Esri Reference, marker style por estado
-    useApi.ts               # $fetch wrapper con baseURL cercu-backend + token Bearer
+    useApi.ts               # $fetch wrapper con baseURL cercu-backend + token Bearer.
+                            # Auto-logout en 401/403 (limpia token + redirect a /admin/login).
+                            # Acepta `opts.observatory` para que un superadmin consulte
+                            # endpoints de humedales / techos-verdes desde este panel
     useCountUp.ts           # Animación count-up genérica (RAF + easeOutExpo + reduced-motion).
                             # Usada por <CommonCountUp> en hero, KPIs y cards de alertas
     useBackendSync.ts       # Orquesta fetch de reefs/conflicts/contributors/observations/layers
                             # desde cercu-backend con fallback silencioso al mock
+    useTracking.ts          # Tracking anónimo de interacciones. Sesión persistente en
+                            # localStorage (uuid v4), batching (lote 20 ó 5s) → POST
+                            # /observatory/arrecifes/events. Click delegation captura
+                            # cualquier elemento con `data-track="..."`. Flush en pagehide
+                            # con sendBeacon. Sin PII; el backend hashea la IP
+    useAnalyticsMath.ts     # Estadística pura JS: mean/median/std/percentile/describe,
+                            # correlation, correlationMatrix (Pearson NxN), linearRegression
+                            # con R²+predict, zScores+flagAnomalies, kmeans (k-means++,
+                            # restarts), histogram, frequency, haversineKm,
+                            # solarIrradiationProxy(lat) — proxy climatológico anual cuando
+                            # NASA POWER aún no se ha cacheado para el arrecife
   data/
     reefs.ts                # 12 arrecifes mexicanos (Caribe + GoM + Pacífico). reefSummary
     layers.ts               # 13 capas abiertas mock (NOAA CRW, NASA MODIS/PACE, ESA Sentinel-2,
@@ -210,6 +227,18 @@ interface Reef {
   gallery?: string[]                 // hasta 3 imágenes adicionales (drawer detalle)
   imageCredit?: string
   visible?: boolean; archived?: boolean
+  climateData?: ReefClimateData | null   // NASA POWER cacheada (null si no refrescado)
+  climateFetchedAt?: string | null
+}
+
+interface ReefClimateData {
+  source: 'nasa_power'; lat: number; lng: number
+  solarIrradiation: number | null    // kWh/m²/día (media anual)
+  airTemp: number | null             // °C
+  precipitation: number | null       // mm/día
+  windSpeed: number | null           // m/s
+  relativeHumidity: number | null    // %
+  monthly: { solarIrradiation: number[]; airTemp: number[]; precipitation: number[] } | null
 }
 
 type BleachingAlertLevel = 'no_stress' | 'watch' | 'warning' | 'alert_1' | 'alert_2'
@@ -378,6 +407,60 @@ Cada `Reef` tiene 1 `hero` (cards/livemap) + hasta 3 `gallery[]` (drawer detalle
 - **Backend:** `ObsReef.gallery` columna JSON nullable (auto-sync TypeORM crea sin
   migración manual). `arrecifes.seed.ts` siembra 3 URLs Unsplash por arrecife vía
   `GALLERIES: Record<id, string[]>`.
+
+## Climatología NASA POWER (✅ implementado)
+
+Cada `Reef` cachea una climatología anual (medias) obtenida de
+[NASA POWER](https://power.larc.nasa.gov) — endpoint público, dominio público, sin
+API key. Ver `Reef.climateData` (interfaz `ReefClimateData`):
+
+| Campo | Variable POWER | Unidad |
+|-------|----------------|--------|
+| `solarIrradiation` | `ALLSKY_SFC_SW_DWN` | kWh/m²/día |
+| `airTemp` | `T2M` | °C |
+| `precipitation` | `PRECTOTCORR` | mm/día |
+| `windSpeed` | `WS10M` | m/s |
+| `relativeHumidity` | `RH2M` | % |
+| `monthly.{...}` | mismas vars | 12 valores ene→dic |
+
+- **Refresh manual:** `POST /admin/reefs/refresh-climate` corre las 12 llamadas
+  secuencialmente con 350 ms entre requests (rate-limit blando NASA ~10 req/s).
+  Disponible como botón **"Actualizar climatología"** en `/admin/analytics` →
+  Inferencial. Idempotente: re-ejecutar sobreescribe `climateData` y
+  `climateFetchedAt`. La climatología cambia poco así que basta refrescar
+  esporádicamente (1×/año o tras cambios mayores).
+- **Fallback:** si un arrecife aún no tiene `climateData`, el frontend usa
+  `useAnalyticsMath().solarIrradiationProxy(lat)` (estimación lineal por latitud
+  para 0°–35°). El banner de la página muestra `NASA POWER: X / 12` para que sea
+  visible cuántos arrecifes están con datos reales vs proxy.
+- **Validación**: el proxy y NASA POWER difieren por nubosidad. P.ej. Veracruz
+  (lat 19.2°): proxy ≈ 6.0, POWER = 4.88 kWh/m²/d — la diferencia captura la
+  nubosidad del Golfo que la latitud sola no ve.
+
+## Tracking de interacciones (✅ implementado)
+
+Tracking anónimo y agregado para alimentar `/admin/analytics` (pestaña Interacciones).
+Privado por diseño: nada de PII; el backend hashea la IP con SHA-256 y un salt local.
+
+- **Plugin:** `plugins/tracking.client.ts` llama `initTracking()` una sola vez por
+  SPA. Hace pageview en cada navegación (`router.afterEach`) + click delegation
+  para cualquier elemento con `data-track="<label>"` (también lee `data-track-group`
+  y `data-track-value` como metadata). Flush en `pagehide`/`beforeunload` con
+  `navigator.sendBeacon` para no perder eventos al cerrar.
+- **Composable:** `composables/useTracking.ts` expone `trackPageview`,
+  `trackEvent(type, target, metadata?)`, `flushNow`, `getSessionId`. Sesión
+  persistida en `localStorage` (`arrecifes-session-id`, uuid v4). Batching: lote
+  de 20 eventos o 5 s, lo que llegue primero.
+- **Endpoint:** `POST /observatory/arrecifes/events` (público, rate-limit 60
+  lotes/min/IP en prod, dev sin límite). Body: `{ events: [{ type, path?, target?,
+  sessionId, metadata?, referrer? }, …] }`.
+- **Convención `data-track`:** marca CTAs y elementos clave del UI público con
+  `data-track="cta-contribuir"` para que aparezcan en el ranking de la pestaña
+  Interacciones (`Top elementos clickeados`). Sin marcar = no se cuenta.
+- **Multi-tenant:** los 3 observatorios (arrecifes, humedales, techos-verdes)
+  comparten el mismo plugin/composable; cada uno postea con su propio observatorio
+  en la URL. Un superadmin puede consultar el resumen de cualquiera vía el selector
+  en `/admin/analytics`.
 
 ## Modos de participación (red de colaboradores)
 
@@ -733,13 +816,21 @@ GET  /observatory/arrecifes/layers/:id                          # acepta id num�
 GET  /observatory/arrecifes/layers/:id/download                 # archivo o redirect 302
 GET  /observatory/arrecifes/tiers                               # escalas reputacionales
 GET  /observatory/arrecifes/tiers/:id                           # acepta id o slug
+POST /observatory/arrecifes/events                              # ingest tracking anónimo
+                                                                # (lote ≤50 eventos, rate-limit 60/min/IP)
 ```
 
-**Admin** (Bearer JWT — `ObservatoryAdmin` con `arrecifes` en `observatories[]`):
+**Admin** (Bearer JWT — `ObservatoryAdmin` con `arrecifes` en `observatories[]`,
+o `role=superadmin` que bypasea la validación de scope):
 
 ```
 GET    /observatory/arrecifes/admin/summary                     # dashboard counts
+GET    /observatory/arrecifes/admin/analytics/summary?days=N    # métricas de uso
+                                                                # (totals, byType, series diaria,
+                                                                # topPaths, topTargets) — N ∈ [1, 180]
 CRUD   /observatory/arrecifes/admin/reefs[/:id]
+POST   /observatory/arrecifes/admin/reefs/refresh-climate       # NASA POWER batch (12 reefs)
+POST   /observatory/arrecifes/admin/reefs/:id/refresh-climate   # NASA POWER de un solo reef
 CRUD   /observatory/arrecifes/admin/conflicts[/:id]             # body acepta `geometry`
 CRUD   /observatory/arrecifes/admin/contributors[/:id]
 GET    /observatory/arrecifes/admin/observations[/:id]
@@ -749,6 +840,7 @@ POST   /observatory/arrecifes/admin/alerts/bleaching            # ingest NOAA CR
 CRUD   /observatory/arrecifes/admin/layers[/:id]
 POST   /observatory/arrecifes/admin/layers/:id/upload           # multipart "file" (≤50 MB)
 CRUD   /observatory/arrecifes/admin/tiers[/:id]
+CRUD   /observatory/arrecifes/admin/usuarios[/:id]              # gestión de admins (multi-obs)
 POST   /observatory/auth/login                                  # JWT 15min, refresh 7d
 GET    /observatory/auth/me
 ```
@@ -867,6 +959,28 @@ Todas las páginas siguen el **mismo patrón tabular**:
 Páginas:
 - `/admin/login` — email + password contra `POST /observatory/auth/login`
 - `/admin` — dashboard con summary (reefs, conflicts, contributors, observations)
+- `/admin/analytics` — **Monitoreo y análisis** (4 pestañas):
+  - **Interacciones** — KPIs (pageviews, sesiones, clicks, envíos), evolución diaria
+    line chart, tipo de evento doughnut, top rutas y top elementos `data-track`
+  - **Descriptivo** — KPIs cobertura coral (media/mediana/IQR/rango), histograma de
+    cobertura, doughnuts de estatus/litoral/protección, distribución de la red de
+    colaboradores y aportes por estado
+  - **Inferencial** — correlación cobertura↔DHW (KPI + scatter con regresión), tabla
+    comparativa entre litorales, anomalías z-score, **matriz de correlaciones de
+    Pearson 14×14** entre cobertura coral y variables externas (irradiación, temp aire,
+    lluvia, viento, humedad, latitud, profundidad, log-área, aportes, aislamiento,
+    SST/ΔSST/DHW), top-5 factores con mayor relación, scatters cobertura vs irradiación
+    / latitud / aislamiento. Banner con cobertura `NASA POWER: X / 12` y botón
+    **Actualizar climatología** que dispara el batch
+  - **Modelado** — k-means de arrecifes (k configurable, normalización min-max),
+    pronóstico de aportes con regresión lineal (slope + R²)
+  - Cada pestaña abre con un banner explicativo y cada gráfica lleva un párrafo
+    debajo del título que responde "qué representa, cómo leerlo, qué decisión informa"
+  - **Selector de observatorio** visible sólo para superadmin (Arrecifes / Humedales /
+    Techos verdes) — la pestaña Interacciones consulta `/admin/analytics/summary` del
+    observatorio elegido vía `apiFetch(..., { observatory })`. Las pestañas
+    descriptivo/inferencial/modelado se deshabilitan si el observatorio elegido no es
+    arrecifes (los stores locales sólo contienen ese dataset)
 - `/admin/reefs` — CRUD completo + galería + filtros: Litoral, Estatus, Protección, Visibilidad
 - `/admin/observations` — tabla cola de revisión + filtros: Estado, Tipo, Reef, Colaborador
 - `/admin/conflicts` — CRUD completo + sección "Ubicación geográfica" (3 modos: sin
@@ -879,17 +993,25 @@ Páginas:
 - `/admin/layers` — CRUD de **capas de datos** + botón **upload** por fila (multer
   FormData, 50 MB, GeoJSON/Shapefile zip/GeoTIFF/KML/KMZ/CSV). Modal por secciones:
   identidad, origen+clasificación, licencia, URLs, render WMS/tile. Permiso `manage_layers`
-- `/admin/usuarios` — lista de admins (solo lectura, los crea el seed por seguridad)
+- `/admin/usuarios` — CRUD completo de administradores. Modal por secciones (datos,
+  rol y permisos, observatorios). Crear superadmin requiere ser superadmin. Borrado
+  bloqueado por backend si es el único superadmin. Permiso `manage_users`
 
 Composables/stores:
-- `stores/auth.ts` — login/logout, `loadFromStorage`, `hasPermission`. Token en
-  `localStorage` bajo clave `arrecifes-admin-token`. `logout()` usa `replace: true`.
+- `stores/auth.ts` — login/logout, `loadFromStorage`, `hasPermission`, `isSuperadmin`.
+  Token en `localStorage` bajo clave `arrecifes-admin-token`. `logout()` usa
+  `replace: true`. **Login bypass para superadmin**: si `admin.role === 'superadmin'`
+  no se exige que `arrecifes` esté en `admin.observatories[]` (acceso transversal a
+  los 3 observatorios).
 - `middleware/admin.ts` — protege `/admin/*` (excepto `/admin/login`) y mapea ruta →
   permiso (`manage_reefs`, `review_submissions`, etc.). Redirige con `replace: true` y
   agrega `?redirect=<ruta-original>` para que el login vuelva ahí.
 - `composables/useApi.ts` — envía `Authorization: Bearer <token>`, prefija
   `/observatory/arrecifes`, y **detecta 401/403** del backend para auto-cerrar sesión:
   borra el token + redirige a `/admin/login?redirect=<ruta-actual>` con `replace: true`.
+  Acepta `opts.observatory` (string) para sobrescribir el prefijo y consultar
+  endpoints de humedales / techos-verdes — usado por `/admin/analytics` cuando un
+  superadmin alterna observatorio.
 
 Layout `layouts/admin.vue` con sidebar colapsable (mobile <lg) y badge de rol del usuario.
 Cada página admin debe declarar `definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })`.

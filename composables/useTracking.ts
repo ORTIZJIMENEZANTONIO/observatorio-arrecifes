@@ -124,6 +124,17 @@ export const useTracking = () => {
   return { trackPageview, trackEvent, flushNow, getSessionId }
 }
 
+// Rutas internas que NO deben contar como tráfico público. El panel admin es
+// uso interno del equipo, no comportamiento de visitantes.
+const INTERNAL_PATH_PREFIXES = ['/admin']
+
+const isInternalPath = (path: string | undefined | null): boolean => {
+  if (!path) return false
+  // Compara sólo el pathname, ignorando query/hash.
+  const pathname = path.split('?')[0].split('#')[0]
+  return INTERNAL_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
+
 // Inicializa una sola vez por SPA: pageview en cada navegación + click delegation.
 export const initTracking = () => {
   if (booted || typeof window === 'undefined') return
@@ -132,15 +143,21 @@ export const initTracking = () => {
   const router = useRouter()
   const { trackPageview, trackEvent } = useTracking()
 
-  trackPageview(window.location.pathname)
+  if (!isInternalPath(window.location.pathname)) {
+    trackPageview(window.location.pathname)
+  }
   router.afterEach((to) => {
-    trackPageview(to.fullPath)
+    if (!isInternalPath(to.fullPath)) {
+      trackPageview(to.fullPath)
+    }
   })
 
   // Click delegation: cualquier elemento con [data-track] dispara un click event.
+  // Sólo en rutas públicas — los clicks dentro del admin son ruido para el dataset.
   document.addEventListener(
     'click',
     (ev) => {
+      if (isInternalPath(window.location.pathname)) return
       const target = ev.target as HTMLElement | null
       if (!target) return
       const trackEl = target.closest<HTMLElement>('[data-track]')

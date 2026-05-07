@@ -2,7 +2,7 @@
 // existing mock data if the cercu-backend endpoint is unavailable, so the
 // observatorio remains usable offline / before deployment.
 
-import type { Reef, SocioEnvironmentalConflict, Contributor, Observation, DataLayer, Tier } from '~/types'
+import type { Reef, SocioEnvironmentalConflict, Contributor, Observation, DataLayer, Tier, ReefNewsArticle } from '~/types'
 
 // Capa serializada por el backend (ObsLayer).
 // id numérico + slug (usamos slug como id estable en el frontend).
@@ -68,6 +68,11 @@ export const useBackendSync = () => {
     if (items?.length) useTiersStore().setTiers(items as Tier[])
   }
 
+  const syncNews = async () => {
+    const items = await fetchList<ReefNewsArticle>('/news?limit=100')
+    if (items) useNewsStore().setArticles(items as ReefNewsArticle[])
+  }
+
   const syncAll = async () => {
     await Promise.all([
       syncReefs(),
@@ -76,6 +81,7 @@ export const useBackendSync = () => {
       syncObservations(),
       syncLayers(),
       syncTiers(),
+      syncNews(),
     ])
   }
 
@@ -86,6 +92,7 @@ export const useBackendSync = () => {
     syncObservations,
     syncLayers,
     syncTiers,
+    syncNews,
     syncAll,
   }
 }

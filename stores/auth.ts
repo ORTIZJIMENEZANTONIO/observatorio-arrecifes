@@ -37,13 +37,32 @@ export const useAuthStore = defineStore('auth', () => {
     return labels[admin.value.role] || admin.value.role
   })
 
+  // Sincroniza el estado en memoria con localStorage en AMBOS sentidos.
+  // Antes sólo escribía cuando había token en storage, lo que producía un
+  // "token zombi" en Pinia tras un 401: useApi limpiaba localStorage pero
+  // dejaba `token.value` poblado, y en la página de login `isAuthenticated`
+  // seguía siendo true → loop de navegación login ↔ ruta protegida.
   const loadFromStorage = () => {
     if (import.meta.server) return
     const t = localStorage.getItem(TOKEN_KEY)
     const a = localStorage.getItem(ADMIN_KEY)
-    if (t) token.value = t
+    token.value = t || null
     if (a) {
-      try { admin.value = JSON.parse(a) } catch { /* ignore */ }
+      try { admin.value = JSON.parse(a) } catch { admin.value = null }
+    } else {
+      admin.value = null
+    }
+  }
+
+  // Limpia sesión sin navegar — útil desde handleAuthExpired en useApi cuando
+  // ya estamos dirigiendo el flujo desde ahí. `logout()` añade la navegación
+  // a /admin/login encima de esto.
+  const clearSession = () => {
+    token.value = null
+    admin.value = null
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(ADMIN_KEY)
     }
   }
 
@@ -68,13 +87,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const logout = () => {
-    token.value = null
-    admin.value = null
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(ADMIN_KEY)
+    clearSession()
     // replace: true → no permite "atrás" al panel después de cerrar sesión
     navigateTo('/admin/login', { replace: true })
   }
 
-  return { token, admin, isAuthenticated, isSuperadmin, roleLabel, hasPermission, login, logout, loadFromStorage }
+  return { token, admin, isAuthenticated, isSuperadmin, roleLabel, hasPermission, login, logout, loadFromStorage, clearSession }
 })

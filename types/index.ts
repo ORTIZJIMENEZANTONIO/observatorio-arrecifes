@@ -389,3 +389,38 @@ export interface AdminUser {
   createdAt?: string
   lastLogin?: string | null
 }
+
+// ── Reef News (sección editorial / blog) ──
+export interface ReefNewsArticle {
+  id: number
+  title: string
+  slug: string
+  summary: string
+  content?: string | null
+  author: string
+  publishedAt: string                  // YYYY-MM-DD
+  tags?: string[] | null
+  image?: string | null
+  imageCredit?: string | null
+  sourceUrl?: string | null            // link al original (Mongabay etc.)
+  source?: string | null               // etiqueta visible ("Mongabay Latam")
+  visible?: boolean
+  archived?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ReefNewsProspect {
+  id: number
+  title: string
+  summary: string
+  url: string
+  source: string
+  publishedAt: string
+  image?: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  rejectionNotes?: string | null
+  urlHash: string
+  reviewedBy?: string | null
+  scrapedAt?: string
+}

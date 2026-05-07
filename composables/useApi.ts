@@ -20,12 +20,18 @@ export const useApi = () => {
   }
 
   // Limpia toda la sesión y redirige a login con `replace: true` (sin entrada
-  // en el back-stack del navegador). Si la ruta actual es admin, agrega `?redirect=`
-  // para volver tras un nuevo login. Idempotente: si ya estamos en login, no hace nada.
+  // en el back-stack del navegador). Si la ruta actual es admin, agrega
+  // `?redirect=` para volver tras un nuevo login. Idempotente: si ya estamos
+  // en login, sólo limpia y no navega.
+  //
+  // Importante: usa `auth.clearSession()` para sincronizar Pinia + localStorage.
+  // Antes sólo borraba localStorage y dejaba `auth.token` poblado, lo que en
+  // la página de login hacía que `isAuthenticated` siguiera devolviendo true
+  // y reactivara la navegación a /admin → 401 → login → loop infinito.
   const handleAuthExpired = async () => {
     if (typeof window === 'undefined') return
-    localStorage.removeItem(tokenKey)
-    localStorage.removeItem(adminInfoKey)
+    const auth = useAuthStore()
+    auth.clearSession()
     const route = useRoute()
     if (route.path === '/admin/login') return
     const query = route.path.startsWith('/admin') ? { redirect: route.fullPath } : undefined

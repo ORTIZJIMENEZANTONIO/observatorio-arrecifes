@@ -73,6 +73,147 @@ export const useAnalyticsMath = () => {
     }
   }
 
+  // ── Análisis de tendencias temporales ──
+  // Test de Mann-Kendall: detecta tendencia monotónica en una serie de tiempo
+  // sin asumir distribución ni linealidad. τ ∈ [-1, 1]: -1 = decreciente
+  // perfecto, +1 = creciente perfecto, 0 = sin tendencia. Devuelve también
+  // la estadística S, varianza con ajuste por empates y p-value bilateral.
+  const mannKendall = (
+    values: number[],
+  ): { S: number; tau: number; varS: number; z: number; pValue: number; n: number } => {
+    const arr = values.filter((v) => Number.isFinite(v))
+    const n = arr.length
+    if (n < 4) {
+      return { S: 0, tau: 0, varS: 0, z: 0, pValue: 1, n }
+    }
+    let S = 0
+    for (let i = 0; i < n - 1; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const d = arr[j] - arr[i]
+        if (d > 0) S++
+        else if (d < 0) S--
+      }
+    }
+    // Ajuste por empates
+    const counts = new Map<number, number>()
+    for (const v of arr) counts.set(v, (counts.get(v) || 0) + 1)
+    let tieAdj = 0
+    for (const c of counts.values()) {
+      if (c > 1) tieAdj += c * (c - 1) * (2 * c + 5)
+    }
+    const varS = (n * (n - 1) * (2 * n + 5) - tieAdj) / 18
+    const tau = S / ((n * (n - 1)) / 2)
+
+    // Aproximación normal con corrección de continuidad
+    let z = 0
+    if (varS > 0) {
+      if (S > 0) z = (S - 1) / Math.sqrt(varS)
+      else if (S < 0) z = (S + 1) / Math.sqrt(varS)
+    }
+    const pValue = 2 * (1 - normalCDF(Math.abs(z)))
+    return { S, tau, varS, z, pValue, n }
+  }
+
+  // Theil-Sen: pendiente robusta (mediana de pendientes par a par). Resistente
+  // a outliers; complementa Mann-Kendall (que sólo dice si hay tendencia, no
+  // de qué magnitud).
+  const theilSenSlope = (xs: number[], ys: number[]): number => {
+    const n = Math.min(xs.length, ys.length)
+    if (n < 2) return 0
+    const slopes: number[] = []
+    for (let i = 0; i < n - 1; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const dx = xs[j] - xs[i]
+        if (dx === 0) continue
+        slopes.push((ys[j] - ys[i]) / dx)
+      }
+    }
+    if (slopes.length === 0) return 0
+    return percentile(slopes, 0.5)
+  }
+
+  // Coeficiente de variación (CV%) — desviación estándar relativa a la media.
+  // Útil para comparar variabilidad entre grupos con diferentes escalas o medias.
+  const coefficientOfVariation = (xs: number[]): number => {
+    const m = mean(xs)
+    if (m === 0 || !Number.isFinite(m)) return 0
+    return (std(xs) / Math.abs(m)) * 100
+  }
+
+  // Bootstrap del intervalo de confianza sobre la media (percentile method).
+  // Más honesto que el IC paramétrico cuando N es pequeño (N=12 arrecifes).
+  const bootstrapMeanCI = (
+    xs: number[],
+    alpha = 0.05,
+    iterations = 1000,
+  ): [number, number] => {
+    const arr = toFinite(xs)
+    if (arr.length === 0) return [0, 0]
+    if (arr.length === 1) return [arr[0], arr[0]]
+    const means: number[] = new Array(iterations)
+    for (let i = 0; i < iterations; i++) {
+      let s = 0
+      for (let j = 0; j < arr.length; j++) {
+        s += arr[Math.floor(Math.random() * arr.length)]
+      }
+      means[i] = s / arr.length
+    }
+    means.sort((a, b) => a - b)
+    return [
+      means[Math.floor((iterations * alpha) / 2)],
+      means[Math.floor(iterations * (1 - alpha / 2))],
+    ]
+  }
+
+  // Asigna rangos (ranks) con promedio en empates — base para Spearman y K-W.
+  const assignRanks = (xs: number[]): number[] => {
+    const indexed = xs.map((v, i) => ({ v, i }))
+    indexed.sort((a, b) => a.v - b.v)
+    const ranks = new Array(xs.length).fill(0)
+    let i = 0
+    while (i < indexed.length) {
+      let j = i
+      while (j < indexed.length - 1 && indexed[j + 1].v === indexed[i].v) j++
+      const avgRank = (i + j) / 2 + 1
+      for (let k = i; k <= j; k++) ranks[indexed[k].i] = avgRank
+      i = j + 1
+    }
+    return ranks
+  }
+
+  // Aproximación de la CDF normal estándar (Abramowitz & Stegun 26.2.17).
+  const normalCDF = (z: number): number => {
+    const t = 1 / (1 + 0.2316419 * Math.abs(z))
+    const d = 0.3989422804014327 * Math.exp((-z * z) / 2)
+    let p =
+      d *
+      t *
+      (0.3193815 +
+        t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))))
+    if (z > 0) p = 1 - p
+    return p
+  }
+
+  // p-value de cola superior para chi² con k df (aproximación Wilson-Hilferty).
+  const chiSquareSF = (x: number, k: number): number => {
+    if (x <= 0 || k <= 0) return 1
+    const z =
+      (Math.cbrt(x / k) - (1 - 2 / (9 * k))) / Math.sqrt(2 / (9 * k))
+    return 1 - normalCDF(z)
+  }
+
+  // p-value bilateral aproximado para correlación de Pearson.
+  // t = r·√((n-2)/(1-r²)) ~ t(n-2). Aproximación normal con corrección de df.
+  const pValueFromPearson = (r: number, n: number): number => {
+    if (n < 3 || !Number.isFinite(r)) return 1
+    if (Math.abs(r) >= 0.999999) return 0
+    const df = n - 2
+    const t = Math.abs(r) * Math.sqrt(df / (1 - r * r))
+    // Corrección Hill (1970) para t pequeño df.
+    const z = (t * (1 - 1 / (4 * df))) / Math.sqrt(1 + (t * t) / (2 * df))
+    return 2 * (1 - normalCDF(z))
+  }
+
   // Pearson correlation
   const correlation = (xs: number[], ys: number[]): number => {
     const n = Math.min(xs.length, ys.length)
@@ -261,21 +402,157 @@ export const useAnalyticsMath = () => {
     return out
   }
 
-  // Matriz de correlaciones de Pearson entre N variables. Devuelve también las
-  // etiquetas para alinear filas/columnas en la UI.
+  // Spearman ρ — correlación basada en rangos. Captura monotonía (no sólo
+  // linealidad), es robusta a outliers y a relaciones no lineales como las
+  // ecológicas típicas (saturación, umbrales).
+  const spearmanCorrelation = (xs: number[], ys: number[]): number => {
+    const n = Math.min(xs.length, ys.length)
+    if (n < 2) return 0
+    return correlation(assignRanks(xs.slice(0, n)), assignRanks(ys.slice(0, n)))
+  }
+
+  // Kruskal-Wallis H — ANOVA no paramétrica para K grupos independientes.
+  // Apropiado para comparar cobertura coral entre litorales con N pequeño y
+  // sin asumir normalidad.
+  const kruskalWallis = (
+    groups: number[][],
+  ): { H: number; df: number; pApprox: number; N: number } => {
+    const allValues: { v: number; g: number }[] = []
+    groups.forEach((group, gIdx) => {
+      for (const v of group) {
+        if (Number.isFinite(v)) allValues.push({ v, g: gIdx })
+      }
+    })
+    const N = allValues.length
+    if (N < 3 || groups.length < 2) {
+      return { H: 0, df: Math.max(0, groups.length - 1), pApprox: 1, N }
+    }
+
+    // Ranks globales (con promedio en empates)
+    allValues.sort((a, b) => a.v - b.v)
+    const ranks = new Array(N).fill(0)
+    let i = 0
+    while (i < N) {
+      let j = i
+      while (j < N - 1 && allValues[j + 1].v === allValues[i].v) j++
+      const avgRank = (i + j) / 2 + 1
+      for (let k = i; k <= j; k++) ranks[k] = avgRank
+      i = j + 1
+    }
+
+    const groupRankSum = new Array(groups.length).fill(0)
+    const groupN = new Array(groups.length).fill(0)
+    for (let k = 0; k < N; k++) {
+      groupRankSum[allValues[k].g] += ranks[k]
+      groupN[allValues[k].g]++
+    }
+
+    let H = 0
+    for (let g = 0; g < groups.length; g++) {
+      if (groupN[g] === 0) continue
+      H += (groupRankSum[g] ** 2) / groupN[g]
+    }
+    H = (12 / (N * (N + 1))) * H - 3 * (N + 1)
+    const df = groups.length - 1
+    return { H, df, pApprox: chiSquareSF(H, df), N }
+  }
+
+  // Índice de Shannon-Wiener (H'). Mide diversidad considerando riqueza y
+  // equitatividad. Estándar en ecología bentónica de arrecifes.
+  // counts: vector con la abundancia/cobertura de cada categoría.
+  const shannonDiversity = (counts: number[]): number => {
+    const total = counts.reduce((a, b) => a + (b > 0 ? b : 0), 0)
+    if (total === 0) return 0
+    let H = 0
+    for (const c of counts) {
+      if (c > 0) {
+        const p = c / total
+        H -= p * Math.log(p)
+      }
+    }
+    return H
+  }
+
+  // Coral Health Index 0-100 (mayor = mejor). Composite ponderado inspirado
+  // en la metodología de Healthy Reefs Initiative, adaptado a las variables
+  // del observatorio. Pesos:
+  //   cover (40%) — cobertura coral viva, satura en 50% (excelente)
+  //   DHW (20%) — estrés térmico inverso, satura en 8 °C·sem (crítico)
+  //   protection (15%) — figura legal del sitio
+  //   threats (15%) — # de amenazas activas (inverso)
+  //   richness (10%) — riqueza de especies (saturación 80)
+  // Si un componente falta, sus pesos se redistribuyen proporcionalmente.
+  const coralHealthIndex = (reef: {
+    liveCoralCover?: number | null
+    dhw?: number | null
+    protection?: string
+    threats?: string[] | null
+    speciesRichness?: number | null
+  }): number => {
+    const components: { value: number; weight: number }[] = []
+    const cover = Number(reef.liveCoralCover)
+    if (Number.isFinite(cover)) {
+      components.push({ value: Math.min(100, cover * 2), weight: 0.4 })
+    }
+    const dhw = Number(reef.dhw)
+    if (Number.isFinite(dhw)) {
+      components.push({
+        value: Math.max(0, 100 - Math.min(100, dhw * 12.5)),
+        weight: 0.2,
+      })
+    }
+    if (reef.protection) {
+      const protectionScore: Record<string, number> = {
+        unesco: 100,
+        anp_federal: 85,
+        ramsar: 80,
+        anp_state: 70,
+        unprotected: 0,
+      }
+      components.push({
+        value: protectionScore[reef.protection] ?? 50,
+        weight: 0.15,
+      })
+    }
+    if (Array.isArray(reef.threats)) {
+      components.push({
+        value: Math.max(0, 100 - reef.threats.length * 15),
+        weight: 0.15,
+      })
+    }
+    const sr = Number(reef.speciesRichness)
+    if (Number.isFinite(sr)) {
+      components.push({ value: Math.min(100, (sr / 80) * 100), weight: 0.1 })
+    }
+    if (components.length === 0) return 0
+    const w = components.reduce((s, c) => s + c.weight, 0)
+    return components.reduce((s, c) => s + c.value * (c.weight / w), 0)
+  }
+
+  // Matriz de correlaciones — soporta Pearson o Spearman. Devuelve además
+  // p-values aproximados para cada celda (igual cálculo en ambos métodos:
+  // Spearman es Pearson sobre rangos).
   const correlationMatrix = (
     vars: { name: string; values: number[] }[],
-  ): { labels: string[]; matrix: number[][] } => {
+    method: 'pearson' | 'spearman' = 'pearson',
+  ): {
+    labels: string[]
+    matrix: number[][]
+    pValues: number[][]
+    method: 'pearson' | 'spearman'
+  } => {
     const n = vars.length
     const matrix: number[][] = Array.from({ length: n }, () => new Array(n).fill(0))
+    const pValues: number[][] = Array.from({ length: n }, () => new Array(n).fill(1))
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
         if (i === j) {
           matrix[i][j] = 1
+          pValues[i][j] = 0
         } else if (j < i) {
           matrix[i][j] = matrix[j][i]
+          pValues[i][j] = pValues[j][i]
         } else {
-          // Solo pares donde ambos valores son finitos
           const xs: number[] = []
           const ys: number[] = []
           const a = vars[i].values
@@ -287,11 +564,23 @@ export const useAnalyticsMath = () => {
               ys.push(b[p])
             }
           }
-          matrix[i][j] = xs.length >= 2 ? correlation(xs, ys) : 0
+          if (xs.length < 3) {
+            matrix[i][j] = 0
+            pValues[i][j] = 1
+          } else {
+            const r =
+              method === 'spearman'
+                ? spearmanCorrelation(xs, ys)
+                : correlation(xs, ys)
+            matrix[i][j] = r
+            // El p-value se calcula igual en ambos métodos: Spearman es
+            // Pearson sobre rangos, así que el test t es comparable.
+            pValues[i][j] = pValueFromPearson(r, xs.length)
+          }
         }
       }
     }
-    return { labels: vars.map((v) => v.name), matrix }
+    return { labels: vars.map((v) => v.name), matrix, pValues, method }
   }
 
   // Distancia gran-círculo en kilómetros entre dos pares lat/lng (Haversine).
@@ -326,7 +615,10 @@ export const useAnalyticsMath = () => {
     variance,
     percentile,
     describe,
+    coefficientOfVariation,
+    bootstrapMeanCI,
     correlation,
+    spearmanCorrelation,
     correlationMatrix,
     linearRegression,
     zScores,
@@ -336,5 +628,11 @@ export const useAnalyticsMath = () => {
     histogram,
     haversineKm,
     solarIrradiationProxy,
+    kruskalWallis,
+    shannonDiversity,
+    coralHealthIndex,
+    pValueFromPearson,
+    mannKendall,
+    theilSenSlope,
   }
 }

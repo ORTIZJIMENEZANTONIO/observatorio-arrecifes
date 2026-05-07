@@ -88,6 +88,97 @@ describe('useAnalyticsMath — inferencial', () => {
   })
 })
 
+describe('useAnalyticsMath — biostatística', () => {
+  const m = useAnalyticsMath()
+
+  it('coefficientOfVariation — proporción correcta', () => {
+    const cv = m.coefficientOfVariation([2, 3, 4, 5, 6])
+    expect(cv).toBeCloseTo(39.5, 1)
+  })
+
+  it('bootstrapMeanCI — el IC contiene la media', () => {
+    const xs = [10, 12, 14, 16, 18, 20]
+    const [lo, hi] = m.bootstrapMeanCI(xs, 0.05, 500)
+    const meanXs = m.mean(xs)
+    expect(lo).toBeLessThanOrEqual(meanXs)
+    expect(hi).toBeGreaterThanOrEqual(meanXs)
+    expect(hi - lo).toBeLessThan(20)
+  })
+
+  it('spearmanCorrelation — captura monotonía no lineal', () => {
+    const xs = [1, 2, 3, 4, 5]
+    const ys = xs.map((x) => x ** 3)
+    expect(m.spearmanCorrelation(xs, ys)).toBeCloseTo(1, 5)
+    expect(m.correlation(xs, ys)).toBeLessThan(1)
+  })
+
+  it('kruskalWallis — detecta diferencia entre grupos separados', () => {
+    const g1 = [1, 2, 3, 4, 5]
+    const g2 = [10, 11, 12, 13, 14]
+    const g3 = [20, 21, 22, 23, 24]
+    const res = m.kruskalWallis([g1, g2, g3])
+    expect(res.df).toBe(2)
+    expect(res.H).toBeGreaterThan(10)
+    expect(res.pApprox).toBeLessThan(0.05)
+  })
+
+  it('shannonDiversity — máximo cuando categorías son equiprobables', () => {
+    expect(m.shannonDiversity([25, 25, 25, 25])).toBeCloseTo(Math.log(4), 5)
+    expect(m.shannonDiversity([100, 0, 0, 0])).toBe(0)
+  })
+
+  it('coralHealthIndex — escala monotónica con cobertura', () => {
+    const sano = m.coralHealthIndex({
+      liveCoralCover: 40, dhw: 0, protection: 'unesco', threats: [], speciesRichness: 70,
+    })
+    const malo = m.coralHealthIndex({
+      liveCoralCover: 5, dhw: 8, protection: 'unprotected', threats: ['a','b','c','d','e','f'], speciesRichness: 10,
+    })
+    expect(sano).toBeGreaterThan(80)
+    expect(malo).toBeLessThan(20)
+  })
+
+  it('pValueFromPearson — r=0 → p≈1, r alto + N grande → p≈0', () => {
+    expect(m.pValueFromPearson(0, 30)).toBeGreaterThan(0.9)
+    expect(m.pValueFromPearson(0.95, 30)).toBeLessThan(0.001)
+  })
+
+  it('mannKendall — detecta tendencia creciente clara', () => {
+    const ascending = [10, 12, 13, 15, 16, 18, 20, 21, 23, 25, 27, 30]
+    const res = m.mannKendall(ascending)
+    expect(res.tau).toBeGreaterThan(0.9)
+    expect(res.pValue).toBeLessThan(0.01)
+  })
+
+  it('mannKendall — serie aleatoria → tau cercano a 0, p alto', () => {
+    const noisy = [10, 8, 12, 9, 11, 10, 13, 9, 11, 10, 12, 11]
+    const res = m.mannKendall(noisy)
+    expect(Math.abs(res.tau)).toBeLessThan(0.5)
+    expect(res.pValue).toBeGreaterThan(0.1)
+  })
+
+  it('theilSenSlope — recupera pendiente con outliers', () => {
+    // y = 2x + 1 con un outlier brutal en el medio
+    const xs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    const ys = xs.map((x) => 2 * x + 1)
+    ys[5] = 1000 // outlier que rompería OLS
+    const slope = m.theilSenSlope(xs, ys)
+    expect(slope).toBeCloseTo(2, 0) // robusto al outlier
+  })
+
+  it('correlationMatrix — soporta Pearson y Spearman, devuelve p-values', () => {
+    const data = [
+      { name: 'A', values: [1, 2, 3, 4, 5, 6, 7, 8] },
+      { name: 'B', values: [1, 4, 9, 16, 25, 36, 49, 64] },
+    ]
+    const pearson = m.correlationMatrix(data, 'pearson')
+    const spearman = m.correlationMatrix(data, 'spearman')
+    expect(spearman.matrix[0][1]).toBeCloseTo(1, 5)
+    expect(pearson.matrix[0][1]).toBeLessThan(1)
+    expect(pearson.pValues[0][1]).toBeLessThan(0.05)
+  })
+})
+
 describe('useAnalyticsMath — modelado', () => {
   const m = useAnalyticsMath()
 

@@ -179,6 +179,70 @@ const coralCoverValues = computed(() =>
 )
 const coralCoverStats = computed(() => math.describe(coralCoverValues.value))
 const coralCoverHistogram = computed(() => math.histogram(coralCoverValues.value, 8))
+const coralCoverCV = computed(() => math.coefficientOfVariation(coralCoverValues.value))
+const coralCoverCI95 = computed(() => math.bootstrapMeanCI(coralCoverValues.value, 0.05, 1000))
+
+// ── Coral Health Index (composite) ──
+// Necesitamos las alertas para extraer DHW por arrecife.
+const alertByReefId = computed(() => {
+  const map = new Map<number, BleachingAlert>()
+  for (const a of alerts.value) {
+    if (!map.has(a.reefId)) map.set(a.reefId, a)
+  }
+  return map
+})
+
+const reefHealthIndices = computed(() =>
+  reefs.value.map((r) => ({
+    reef: r,
+    chi: math.coralHealthIndex({
+      liveCoralCover: Number(r.liveCoralCover),
+      dhw: alertByReefId.value.has(r.id)
+        ? Number(alertByReefId.value.get(r.id)!.dhw)
+        : null,
+      protection: r.protection,
+      threats: r.threats,
+      speciesRichness: r.speciesRichness,
+    }),
+  })),
+)
+
+const meanHealthIndex = computed(() =>
+  math.mean(reefHealthIndices.value.map((x) => x.chi)),
+)
+
+const healthIndexCI95 = computed(() =>
+  math.bootstrapMeanCI(reefHealthIndices.value.map((x) => x.chi), 0.05, 1000),
+)
+
+// ── Diversidad bentónica (Shannon H' por arrecife) ──
+// Cada `Reef.benthicClasses` es la lista de clases presentes; las tratamos como
+// presencia/ausencia y computamos riqueza local. Para Shannon a escala de
+// observatorio agregamos las frecuencias entre arrecifes.
+const benthicAggregateCounts = computed(() => {
+  const counts: Record<string, number> = {}
+  for (const r of reefs.value) {
+    for (const cls of r.benthicClasses || []) {
+      counts[cls] = (counts[cls] || 0) + 1
+    }
+  }
+  return counts
+})
+
+const shannonOverall = computed(() =>
+  math.shannonDiversity(Object.values(benthicAggregateCounts.value)),
+)
+
+const shannonMax = computed(() => {
+  const k = Object.keys(benthicAggregateCounts.value).length
+  return k > 0 ? Math.log(k) : 0
+})
+
+// Equitatividad de Pielou (J' = H' / H_max), 0 = monodominancia, 1 = perfecta.
+const pielouEvenness = computed(() => {
+  const hMax = shannonMax.value
+  return hMax > 0 ? shannonOverall.value / hMax : 0
+})
 
 const coralCoverHistChart = computed(() => ({
   labels: coralCoverHistogram.value.map((b) => b.bin + '%'),
@@ -420,7 +484,29 @@ const correlationVariables = computed(() => {
   ]
 })
 
-const correlationMatrix = computed(() => math.correlationMatrix(correlationVariables.value))
+// Método de la matriz de correlación. Spearman (rangos) capta relaciones
+// monotónicas no lineales y es robusta a outliers — más apropiada para
+// ecología que Pearson cuando N es pequeño.
+const correlationMethod = ref<'pearson' | 'spearman'>('spearman')
+const correlationMatrix = computed(() =>
+  math.correlationMatrix(correlationVariables.value, correlationMethod.value),
+)
+
+// Corrección de Bonferroni para múltiples comparaciones. Con K variables hay
+// K·(K-1)/2 pares únicos; rechazar H0 a α=0.05 requiere p < 0.05/N_pares.
+const bonferroniThreshold = computed(() => {
+  const k = correlationMatrix.value.labels.length
+  const nPairs = (k * (k - 1)) / 2
+  return nPairs > 0 ? 0.05 / nPairs : 0.05
+})
+
+const cellSignificance = (i: number, j: number): 'none' | 'raw' | 'bonferroni' => {
+  if (i === j) return 'none'
+  const p = correlationMatrix.value.pValues[i][j]
+  if (p < bonferroniThreshold.value) return 'bonferroni'
+  if (p < 0.05) return 'raw'
+  return 'none'
+}
 
 const matrixCellClass = (r: number): string => {
   const v = Math.abs(r)
@@ -514,15 +600,35 @@ const scatterOptionsFor = (xLabel: string, yLabel: string) => ({
   plugins: { legend: { position: 'bottom' as const } },
 })
 
-// Comparación entre litorales
+// Comparación entre litorales — añadimos CV% y bootstrap CI a las estadísticas
+// descriptivas, para que la tabla muestre variabilidad relativa y la
+// incertidumbre real sobre la media.
 const oceanCoralStats = computed(() => {
   const oceans = ['caribbean', 'gulf_of_mexico', 'pacific'] as const
   return oceans.map((o) => {
     const values = reefs.value
       .filter((r) => r.ocean === o && Number.isFinite(Number(r.liveCoralCover)))
       .map((r) => Number(r.liveCoralCover))
-    return { ocean: o, ...math.describe(values) }
+    const stats = math.describe(values)
+    return {
+      ocean: o,
+      ...stats,
+      cv: math.coefficientOfVariation(values),
+      ci: values.length >= 2 ? math.bootstrapMeanCI(values, 0.05, 500) : [stats.mean, stats.mean],
+    }
   })
+})
+
+// Kruskal-Wallis: ¿la cobertura coralina difiere significativamente entre
+// litorales? Test no paramétrico apropiado para N=12 sin asumir normalidad.
+const oceanKruskalWallis = computed(() => {
+  const groups = oceanCoralStats.value
+    .map((s) => reefs.value
+      .filter((r) => r.ocean === s.ocean && Number.isFinite(Number(r.liveCoralCover)))
+      .map((r) => Number(r.liveCoralCover)),
+    )
+    .filter((g) => g.length > 0)
+  return math.kruskalWallis(groups)
 })
 
 const oceanLabel = (o: string) =>
@@ -635,6 +741,134 @@ const forecastChart = computed(() => {
     ],
   }
 })
+
+// ────────── TENDENCIAS TEMPORALES ──────────
+// Carga snapshots históricos (cada uno = estado de un reef en una fecha) para
+// computar Mann-Kendall + Theil-Sen sobre el CHI promedio mensual por litoral.
+interface ReefMetricSnapshot {
+  id: number
+  reefId: number
+  capturedAt: string // YYYY-MM-DD
+  liveCoralCover: number | null
+  dhw: number | null
+  sst: number | null
+  healthIndex: number | null
+}
+
+const snapshots = ref<ReefMetricSnapshot[]>([])
+const snapshotsLoading = ref(false)
+const snapshotting = ref(false)
+const snapshotError = ref('')
+
+const loadSnapshots = async () => {
+  snapshotsLoading.value = true
+  snapshotError.value = ''
+  try {
+    const res = await apiFetch<{ success: boolean; items: ReefMetricSnapshot[] }>(
+      '/reefs/metrics?days=400',
+    )
+    snapshots.value = res.items || []
+  } catch (e: any) {
+    snapshotError.value = e?.data?.error?.message || 'No se pudieron cargar los snapshots'
+    snapshots.value = []
+  } finally {
+    snapshotsLoading.value = false
+  }
+}
+
+const captureSnapshot = async () => {
+  snapshotting.value = true
+  snapshotError.value = ''
+  try {
+    await apiFetch('/admin/reefs/snapshot', { method: 'POST' })
+    await loadSnapshots()
+  } catch (e: any) {
+    snapshotError.value = e?.data?.error?.message || 'No se pudo capturar el snapshot'
+  } finally {
+    snapshotting.value = false
+  }
+}
+
+onMounted(loadSnapshots)
+
+// Agrupa snapshots por (litoral, mes) y calcula CHI promedio mensual.
+interface OceanTrend {
+  ocean: 'caribbean' | 'gulf_of_mexico' | 'pacific'
+  label: string
+  months: { date: string; chi: number }[]
+  mannKendall: ReturnType<ReturnType<typeof useAnalyticsMath>['mannKendall']>
+  theilSen: number       // pp / mes (puntos del CHI por mes)
+}
+
+const reefIdToOcean = computed(() => {
+  const map = new Map<number, string>()
+  for (const r of reefs.value) map.set(r.id, r.ocean)
+  return map
+})
+
+const oceanTrends = computed<OceanTrend[]>(() => {
+  if (snapshots.value.length === 0 || reefs.value.length === 0) return []
+
+  const grouped: Record<string, Record<string, number[]>> = {
+    caribbean: {}, gulf_of_mexico: {}, pacific: {},
+  }
+  for (const s of snapshots.value) {
+    const ocean = reefIdToOcean.value.get(s.reefId)
+    if (!ocean || !grouped[ocean]) continue
+    if (s.healthIndex == null) continue
+    const monthKey = s.capturedAt.slice(0, 7) // YYYY-MM
+    if (!grouped[ocean][monthKey]) grouped[ocean][monthKey] = []
+    grouped[ocean][monthKey].push(Number(s.healthIndex))
+  }
+
+  return (['caribbean', 'gulf_of_mexico', 'pacific'] as const).map((ocean) => {
+    const monthsAvg = Object.entries(grouped[ocean])
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([date, vals]) => ({ date, chi: math.mean(vals) }))
+    const series = monthsAvg.map((m) => m.chi)
+    const xs = monthsAvg.map((_, i) => i)
+    return {
+      ocean,
+      label: oceanLabel(ocean),
+      months: monthsAvg,
+      mannKendall: math.mannKendall(series),
+      theilSen: math.theilSenSlope(xs, series),
+    }
+  }).filter((t) => t.months.length >= 3)
+})
+
+const trendChart = computed(() => {
+  if (oceanTrends.value.length === 0) return null
+  const allMonths = Array.from(
+    new Set(oceanTrends.value.flatMap((t) => t.months.map((m) => m.date))),
+  ).sort()
+  const colors: Record<string, string> = {
+    caribbean: '#0E7490',
+    gulf_of_mexico: '#F59E0B',
+    pacific: '#10B981',
+  }
+  return {
+    labels: allMonths.map((m) => m.slice(2)), // 'YY-MM'
+    datasets: oceanTrends.value.map((t) => {
+      const byMonth = new Map(t.months.map((m) => [m.date, m.chi]))
+      return {
+        label: t.label,
+        data: allMonths.map((m) => byMonth.get(m) ?? null),
+        borderColor: colors[t.ocean],
+        backgroundColor: colors[t.ocean] + '22',
+        tension: 0.25,
+        fill: false,
+        spanGaps: true,
+      }
+    }),
+  }
+})
+
+const trendInterpretation = (t: OceanTrend): string => {
+  if (t.mannKendall.pValue >= 0.05) return 'sin tendencia clara'
+  if (t.mannKendall.tau > 0) return 'tendencia creciente significativa'
+  return 'tendencia decreciente significativa'
+}
 
 const baseLineOptions = {
   responsive: true,
@@ -825,20 +1059,62 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
         <div class="kpi-card">
           <p class="text-xs uppercase tracking-wide text-ink-muted">Cobertura coral promedio</p>
           <p class="mt-1 text-3xl font-bold text-eco">{{ formatPct(coralCoverStats.mean) }}</p>
-          <p class="mt-1 text-xs text-ink-muted">σ = {{ formatPct(coralCoverStats.std) }}</p>
+          <p class="mt-1 text-xs text-ink-muted">
+            IC 95%: {{ formatPct(coralCoverCI95[0]) }} – {{ formatPct(coralCoverCI95[1]) }}
+          </p>
         </div>
         <div class="kpi-card">
-          <p class="text-xs uppercase tracking-wide text-ink-muted">Mediana</p>
+          <p class="text-xs uppercase tracking-wide text-ink-muted">Mediana · IQR</p>
           <p class="mt-1 text-3xl font-bold text-primary">{{ formatPct(coralCoverStats.median) }}</p>
-          <p class="mt-1 text-xs text-ink-muted">IQR = {{ formatPct(coralCoverStats.iqr) }}</p>
+          <p class="mt-1 text-xs text-ink-muted">
+            IQR = {{ formatPct(coralCoverStats.iqr) }} · CV = {{ coralCoverCV.toFixed(0) }}%
+          </p>
         </div>
         <div class="kpi-card">
-          <p class="text-xs uppercase tracking-wide text-ink-muted">Rango</p>
-          <p class="mt-1 text-3xl font-bold text-ink">{{ formatPct(coralCoverStats.min) }} – {{ formatPct(coralCoverStats.max) }}</p>
+          <p class="text-xs uppercase tracking-wide text-ink-muted">Índice de salud coralino</p>
+          <p
+            class="mt-1 text-3xl font-bold"
+            :class="meanHealthIndex >= 70 ? 'text-eco' : meanHealthIndex >= 40 ? 'text-accent' : 'text-alert'"
+          >
+            {{ meanHealthIndex.toFixed(0) }}<span class="text-base">/100</span>
+          </p>
+          <p class="mt-1 text-xs text-ink-muted">
+            IC 95%: {{ healthIndexCI95[0].toFixed(0) }} – {{ healthIndexCI95[1].toFixed(0) }}
+          </p>
         </div>
         <div class="kpi-card">
-          <p class="text-xs uppercase tracking-wide text-ink-muted">N arrecifes</p>
-          <p class="mt-1 text-3xl font-bold text-ink">{{ coralCoverStats.count }}</p>
+          <p class="text-xs uppercase tracking-wide text-ink-muted">Diversidad bentónica (Shannon H')</p>
+          <p class="mt-1 text-3xl font-bold text-secondary">{{ shannonOverall.toFixed(2) }}</p>
+          <p class="mt-1 text-xs text-ink-muted">
+            Equitatividad J' = {{ pielouEvenness.toFixed(2) }} · {{ coralCoverStats.count }} arrecifes
+          </p>
+        </div>
+      </div>
+
+      <!-- Ranking del Índice de Salud Coralino -->
+      <div class="card p-5">
+        <h3 class="text-sm font-semibold text-ink">Ranking de salud por arrecife</h3>
+        <p class="mb-3 mt-1 text-xs text-ink-muted">
+          Índice 0–100 que combina cobertura coral viva (40%), estrés térmico DHW (20%), figura de protección (15%),
+          número de amenazas activas (15%) y riqueza de especies (10%). Inspirado en la metodología de la
+          <a href="https://www.healthyreefs.org" target="_blank" rel="noopener" class="text-primary underline">
+            Healthy Reefs Initiative
+          </a>, adaptada a los datos disponibles.
+        </p>
+        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div
+            v-for="row in [...reefHealthIndices].sort((a, b) => b.chi - a.chi)"
+            :key="row.reef.id"
+            class="flex items-center justify-between rounded-lg border border-gray-100 bg-white px-3 py-2 text-xs"
+          >
+            <span class="truncate font-medium text-ink">{{ row.reef.name }}</span>
+            <span
+              class="ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums"
+              :class="row.chi >= 70 ? 'bg-eco/15 text-eco-dark' : row.chi >= 40 ? 'bg-accent/15 text-accent' : 'bg-alert/15 text-alert'"
+            >
+              {{ row.chi.toFixed(0) }}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -960,18 +1236,21 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
         <div class="card p-5">
           <h3 class="text-sm font-semibold text-ink">Comparación entre litorales</h3>
           <p class="mb-3 mt-1 text-xs text-ink-muted">
-            Estadística de cobertura coral por costa (Caribe, Golfo, Pacífico). Sirve para detectar si una región
-            está sistemáticamente más sana o más degradada que las otras.
+            Cobertura coral por costa con IC 95% bootstrap (1000 réplicas) y coeficiente de variación.
+            La prueba de Kruskal-Wallis evalúa si las diferencias entre las tres medianas son
+            estadísticamente significativas; es no paramétrica y apropiada para N pequeño.
           </p>
           <div class="overflow-x-auto">
-            <table class="table-base text-sm">
+            <table class="table-base text-xs">
               <thead>
                 <tr>
                   <th class="text-left">Litoral</th>
                   <th class="text-right">N</th>
                   <th class="text-right">Media</th>
+                  <th class="text-right">IC 95%</th>
                   <th class="text-right">Mediana</th>
                   <th class="text-right">σ</th>
+                  <th class="text-right">CV%</th>
                 </tr>
               </thead>
               <tbody>
@@ -979,11 +1258,35 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
                   <td class="py-2 font-medium">{{ oceanLabel(row.ocean) }}</td>
                   <td class="text-right">{{ row.count }}</td>
                   <td class="text-right">{{ formatPct(row.mean) }}</td>
+                  <td class="text-right text-ink-muted">
+                    {{ formatPct(row.ci[0]) }}–{{ formatPct(row.ci[1]) }}
+                  </td>
                   <td class="text-right">{{ formatPct(row.median) }}</td>
                   <td class="text-right">{{ formatPct(row.std) }}</td>
+                  <td class="text-right">{{ row.cv.toFixed(0) }}%</td>
                 </tr>
               </tbody>
             </table>
+          </div>
+          <div
+            class="mt-3 rounded-lg border p-3 text-xs"
+            :class="oceanKruskalWallis.pApprox < 0.05
+              ? 'border-eco/30 bg-eco/5 text-eco-dark'
+              : 'border-gray-200 bg-gray-50 text-ink-muted'"
+          >
+            <p class="font-semibold">
+              Kruskal-Wallis · H = {{ oceanKruskalWallis.H.toFixed(2) }} · gl = {{ oceanKruskalWallis.df }} · p
+              {{ oceanKruskalWallis.pApprox < 0.001 ? '< 0.001' : '= ' + oceanKruskalWallis.pApprox.toFixed(3) }}
+            </p>
+            <p class="mt-0.5">
+              <template v-if="oceanKruskalWallis.pApprox < 0.05">
+                Hay diferencias significativas entre litorales (p &lt; 0.05). Las costas no se comportan igual.
+              </template>
+              <template v-else>
+                No hay evidencia de diferencias significativas — las distribuciones por litoral son comparables
+                con la N actual.
+              </template>
+            </p>
           </div>
         </div>
 
@@ -1024,6 +1327,18 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
             >
               NASA POWER: {{ climateCoverage.real }} / {{ climateCoverage.total }}
             </span>
+            <div class="inline-flex overflow-hidden rounded-lg border border-gray-200 text-[11px]">
+              <button
+                class="px-2 py-1 transition-colors"
+                :class="correlationMethod === 'spearman' ? 'bg-primary text-white' : 'bg-white text-ink-muted hover:bg-gray-50'"
+                @click="correlationMethod = 'spearman'"
+              >Spearman ρ</button>
+              <button
+                class="px-2 py-1 transition-colors"
+                :class="correlationMethod === 'pearson' ? 'bg-primary text-white' : 'bg-white text-ink-muted hover:bg-gray-50'"
+                @click="correlationMethod = 'pearson'"
+              >Pearson r</button>
+            </div>
             <button
               class="btn-ghost btn-sm"
               :disabled="climateRefreshing"
@@ -1035,12 +1350,15 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           </div>
         </div>
         <p class="mb-4 text-xs text-ink-muted">
-          Matriz de Pearson entre cobertura coral y factores ambientales. Irradiación solar, temperatura del aire,
-          precipitación, viento y humedad provienen de
-          <a href="https://power.larc.nasa.gov" target="_blank" rel="noopener" class="text-primary underline">NASA POWER</a>
-          (climatología anual del punto, dominio público). Cuando un arrecife aún no tiene datos NASA cacheados, la
-          irradiación se estima por latitud como respaldo. SST, ΔSST y DHW provienen de la última alerta NOAA CRW.
+          Matriz de correlaciones
+          <strong>{{ correlationMethod === 'spearman' ? 'de Spearman (rangos)' : 'de Pearson (lineal)' }}</strong>
+          entre cobertura coral y factores ambientales. Spearman es robusto a outliers y captura monotonía no
+          lineal — más apropiado para ecología con N pequeño. Variables climatológicas anuales:
+          <a href="https://power.larc.nasa.gov" target="_blank" rel="noopener" class="text-primary underline">NASA POWER</a>;
+          SST/ΔSST/DHW: última alerta NOAA CRW. Cuando falta NASA, la irradiación se estima por latitud.
           Verde = positiva, rojo = negativa, intensidad ∝ |r|.
+          <span class="font-semibold">★</span> = significativo tras corrección de Bonferroni (p &lt; {{ bonferroniThreshold.toExponential(1) }}),
+          <span class="font-semibold">•</span> = significativo sin corregir (p &lt; 0.05).
         </p>
         <p v-if="climateRefreshError" class="mb-3 rounded-lg border border-alert/30 bg-alert/5 p-2 text-xs text-alert">
           {{ climateRefreshError }}
@@ -1072,9 +1390,19 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
                   :key="`c-${i}-${j}`"
                   class="whitespace-nowrap px-3 py-2 text-center text-xs tabular-nums"
                   :class="matrixCellClass(value)"
-                  :title="`${correlationMatrix.labels[i]} ↔ ${correlationMatrix.labels[j]}: r = ${value.toFixed(3)}`"
+                  :title="`${correlationMatrix.labels[i]} ↔ ${correlationMatrix.labels[j]}: ${correlationMethod === 'spearman' ? 'ρ' : 'r'} = ${value.toFixed(3)} · p = ${correlationMatrix.pValues[i][j].toExponential(2)}`"
                 >
-                  {{ Number.isFinite(value) ? value.toFixed(2) : '—' }}
+                  <span>{{ Number.isFinite(value) ? value.toFixed(2) : '—' }}</span>
+                  <span
+                    v-if="cellSignificance(i, j) === 'bonferroni'"
+                    class="ml-0.5 text-[10px]"
+                    aria-label="Significativo tras corrección Bonferroni"
+                  >★</span>
+                  <span
+                    v-else-if="cellSignificance(i, j) === 'raw'"
+                    class="ml-0.5 text-[10px]"
+                    aria-label="Significativo sin corregir"
+                  >•</span>
                 </td>
               </tr>
             </tbody>
@@ -1182,6 +1510,65 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           tendencia futura de aportes ciudadanos. No reemplaza modelos físicos del oceanógrafo; es una primera
           mirada exploratoria.
         </p>
+      </div>
+
+      <!-- Tendencias temporales (Mann-Kendall + Theil-Sen sobre snapshots) -->
+      <div class="card p-5">
+        <div class="mb-1 flex flex-wrap items-baseline justify-between gap-3">
+          <h3 class="text-sm font-semibold text-ink">Tendencias temporales del Índice de Salud Coralino</h3>
+          <button
+            class="btn-ghost btn-sm"
+            :disabled="snapshotting || snapshotsLoading"
+            @click="captureSnapshot"
+          >
+            <Icon name="lucide:camera" size="14" :class="snapshotting ? 'animate-spin' : ''" />
+            {{ snapshotting ? 'Capturando…' : 'Capturar snapshot ahora' }}
+          </button>
+        </div>
+        <p class="mb-4 text-xs text-ink-muted">
+          Promedio mensual del Índice de Salud Coralino por litoral. La <strong>prueba de Mann-Kendall</strong>
+          (no paramétrica, robusta a outliers) detecta si existe una tendencia monotónica creciente o decreciente.
+          La <strong>pendiente de Theil-Sen</strong> mide la magnitud real del cambio (puntos del CHI por mes) sin
+          ser afectada por valores atípicos. Snapshots capturados manualmente vía
+          <code>POST /admin/reefs/snapshot</code>; los datos iniciales provienen del seed de 6 meses históricos.
+        </p>
+        <p v-if="snapshotError" class="mb-3 rounded-lg border border-alert/30 bg-alert/5 p-2 text-xs text-alert">
+          {{ snapshotError }}
+        </p>
+
+        <div v-if="oceanTrends.length === 0 && !snapshotsLoading" class="text-sm text-ink-muted">
+          Aún no hay snapshots históricos. Ejecuta el seed o captura uno manualmente para empezar la serie.
+        </div>
+
+        <div v-else>
+          <div class="h-72">
+            <ChartsLineChart v-if="trendChart" :data="trendChart" :options="baseLineOptions" />
+          </div>
+
+          <div class="mt-4 grid gap-3 md:grid-cols-3">
+            <div
+              v-for="t in oceanTrends"
+              :key="t.ocean"
+              class="rounded-xl border p-4"
+              :class="t.mannKendall.pValue < 0.05
+                ? t.mannKendall.tau > 0
+                  ? 'border-eco/30 bg-eco/5'
+                  : 'border-alert/30 bg-alert/5'
+                : 'border-gray-200 bg-gray-50'"
+            >
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{{ t.label }}</p>
+              <p class="mt-1 text-sm font-semibold text-ink">
+                {{ trendInterpretation(t) }}
+              </p>
+              <ul class="mt-2 space-y-0.5 text-[11px] text-ink-muted tabular-nums">
+                <li>Mann-Kendall τ = <strong>{{ t.mannKendall.tau.toFixed(2) }}</strong></li>
+                <li>p-value = {{ t.mannKendall.pValue < 0.001 ? '< 0.001' : t.mannKendall.pValue.toFixed(3) }}</li>
+                <li>Theil-Sen = <strong>{{ t.theilSen >= 0 ? '+' : '' }}{{ t.theilSen.toFixed(2) }}</strong> pts/mes</li>
+                <li>N = {{ t.months.length }} meses</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="card p-5">

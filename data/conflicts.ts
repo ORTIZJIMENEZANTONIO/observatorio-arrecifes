@@ -90,6 +90,7 @@ export const conflicts: SocioEnvironmentalConflict[] = [
     updatedAt: '2026-04-01',
     drivers: ['flota foránea', 'baja inspección naval'],
     resistance: ['CONANP', 'Cooperativa Isla Isabel', 'OAPN Pacífico'],
+    mediaUrls: [],
   },
   {
     id: 5,
@@ -132,5 +133,6 @@ export const conflicts: SocioEnvironmentalConflict[] = [
     drivers: ['Pemex Exploración y Producción'],
     resistance: ['CEMDA', 'Greenpeace México'],
     legalActions: ['Denuncia ante PROFEPA y ASEA'],
+    mediaUrls: [],
   },
 ]

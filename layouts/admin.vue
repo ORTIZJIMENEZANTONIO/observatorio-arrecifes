@@ -5,6 +5,7 @@ const route = useRoute()
 
 const allNavItems = [
   { label: 'Dashboard', to: '/admin', icon: 'lucide:layout-dashboard', exact: true },
+  { label: 'Monitoreo', to: '/admin/analytics', icon: 'lucide:line-chart' },
   { label: 'Arrecifes', to: '/admin/reefs', icon: 'lucide:waves', perm: 'manage_reefs' as const },
   { label: 'Observaciones', to: '/admin/observations', icon: 'lucide:camera', perm: 'review_submissions' as const },
   { label: 'Atlas', to: '/admin/conflicts', icon: 'lucide:alert-triangle', perm: 'manage_conflicts' as const },

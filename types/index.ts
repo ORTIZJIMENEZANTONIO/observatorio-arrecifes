@@ -76,6 +76,28 @@ export interface Reef {
   imageCredit?: string
   visible?: boolean
   archived?: boolean
+  // Climatología NASA POWER cacheada en backend. Puede estar ausente si nunca
+  // se ejecutó el refresh-climate.
+  climateData?: ReefClimateData | null
+  climateFetchedAt?: string | null
+}
+
+// Subset de variables climatológicas que devuelve NASA POWER. Ver entidad
+// `ObsReef.climateData` en el backend.
+export interface ReefClimateData {
+  source: 'nasa_power'
+  lat: number
+  lng: number
+  solarIrradiation: number | null    // kWh/m²/día (media anual)
+  airTemp: number | null             // °C
+  precipitation: number | null       // mm/día
+  windSpeed: number | null           // m/s
+  relativeHumidity: number | null    // %
+  monthly: {
+    solarIrradiation: number[]       // 12 valores ene→dic
+    airTemp: number[]
+    precipitation: number[]
+  } | null
 }
 
 // ── NOAA Coral Reef Watch alert levels ─────────────────────────────────────
@@ -362,6 +384,8 @@ export interface AdminUser {
   name: string
   role: AdminRole
   permissions: AdminPermission[]
+  observatories?: string[]
+  isActive?: boolean
   createdAt?: string
-  lastLogin?: string
+  lastLogin?: string | null
 }

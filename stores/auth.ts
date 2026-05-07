@@ -53,7 +53,12 @@ export const useAuthStore = defineStore('auth', () => {
       `${config.public.apiBaseUrl}/observatory/auth/login`,
       { method: 'POST', body: { email, password } },
     )
-    if (!res.data.admin.observatories.includes('arrecifes')) {
+    // Superadmin tiene acceso transversal a todos los observatorios sin importar
+    // su `observatories[]`. Para los demás roles se valida el alcance explícito.
+    if (
+      res.data.admin.role !== 'superadmin' &&
+      !res.data.admin.observatories.includes('arrecifes')
+    ) {
       throw new Error('Tu cuenta no tiene acceso al observatorio de arrecifes')
     }
     token.value = res.data.accessToken

@@ -103,7 +103,7 @@
                 <Icon name="lucide:send" size="16" />
                 Enviar para revisión
               </button>
-              <button type="button" class="btn-outline" @click="resetForm">
+              <button type="button" class="btn-outline" @click="resetForm()">
                 <Icon name="lucide:rotate-ccw" size="14" />
                 Limpiar
               </button>

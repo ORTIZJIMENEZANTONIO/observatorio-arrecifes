@@ -32,7 +32,12 @@ export const useApi = () => {
     await navigateTo({ path: '/admin/login', query }, { replace: true })
   }
 
-  const apiFetch = async <T = unknown>(path: string, opts: any = {}): Promise<T> => {
+  // `opts.observatory` permite a un superadmin consultar otros observatorios
+  // (humedales, techos-verdes) desde este panel sin cambiar la baseURL.
+  const apiFetch = async <T = unknown>(
+    path: string,
+    opts: any = {},
+  ): Promise<T> => {
     const headers: Record<string, string> = {
       Accept: 'application/json',
       ...(opts.headers ?? {}),
@@ -40,12 +45,14 @@ export const useApi = () => {
     const token = getToken()
     if (token) headers.Authorization = `Bearer ${token}`
 
+    const targetObs = (opts.observatory as string | undefined) ?? observatory
+    const { observatory: _ignored, ...fetchOpts } = opts
     const url = path.startsWith('http')
       ? path
-      : `${baseURL}/observatory/${observatory}${path.startsWith('/') ? path : `/${path}`}`
+      : `${baseURL}/observatory/${targetObs}${path.startsWith('/') ? path : `/${path}`}`
 
     try {
-      return await $fetch<T>(url, { ...opts, headers })
+      return await $fetch<T>(url, { ...fetchOpts, headers })
     } catch (err: any) {
       const status = err?.status || err?.response?.status
       if (status === 401 || status === 403) {

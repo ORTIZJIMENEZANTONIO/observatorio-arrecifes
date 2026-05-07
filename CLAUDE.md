@@ -379,24 +379,48 @@ Cada `Reef` tiene 1 `hero` (cards/livemap) + hasta 3 `gallery[]` (drawer detalle
   migración manual). `arrecifes.seed.ts` siembra 3 URLs Unsplash por arrecife vía
   `GALLERIES: Record<id, string[]>`.
 
-## Sistema de reputación (red de colaboradores)
+## Modos de participación (red de colaboradores)
 
-Inspirado en Mercado Libre/Rappi: rango basado en aportes validados, calidad y consistencia
-(no solo volumen). Las escalas viven en la tabla `obs_tiers` y se editan desde
-`/admin/tiers`. Defaults sembrados por `seeds/arrecifes.seed.ts`:
+**No es un ranking jerárquico.** El observatorio funciona como una red horizontal
+con cinco maneras distintas pero igual de válidas de aportar al monitoreo. El
+sistema de puntos (`reputationScore`) sigue existiendo internamente para asignar
+modo a cada colaborador, pero ya **no se muestra como meta visible** en `/contributors`
+— ahí cada modo se presenta como un foco de participación, no como un nivel a alcanzar.
 
-| Rango | Umbral | Requisitos típicos |
-|-------|--------|--------------------|
-| Bronce | 0–199 pts | Primer aporte validado |
-| Plata | 200–499 pts | 30+ aportes validados |
-| Oro | 500–699 pts | 60+ aportes, calidad ≥75%, 3+ meses activo |
-| Platino | 700–999 pts | 90+ aportes, calidad ≥85%, 6+ meses activo |
-| **Coral** | 1000+ pts | **Top 1%**. Identidad y trayectoria verificadas |
+| Slug (BD) | Modo de participar | Quién aporta así |
+|-----------|--------------------|------------------|
+| `bronze` | Curiosidad ciudadana | Personas con interés en el mar, sin formación técnica formal — el primer ojo |
+| `silver` | Conocimiento del mar | Pescadoras, buzos, comunidades costeras — saber empírico de la costa |
+| `gold` | Trabajo en agua | Profesionales de campo: transectos, dron, muestreos |
+| `platinum` | Investigación formal | Academia (ICML-UNAM, CINVESTAV), peer-review, series satelitales |
+| `coral` | Síntesis y curaduría | Equipo del observatorio, CONANP/SEMARNAT, validación cruzada |
 
-`Contributor.tier` referencia el `slug` de `ObsTier`. Cambiar el slug de una escala
-existente puede dejar colaboradores huérfanos — la UI admin permite editar etiqueta,
-descripción y umbrales pero deshabilita el slug tras crear. El backend bloquea el
-borrado físico si hay `Contributor` usando esa escala (debe archivarse, `archived=true`).
+Cada card en `/contributors` muestra: el modo, **quién aporta así**, **aportes
+típicos** (3 ejemplos concretos) y **conecta con** (cómo se complementa con los
+otros modos). Sin "Nivel N", sin chevrons de progresión, sin "Para llegar".
+
+Los slugs (`bronze/silver/gold/platinum/coral`) se mantienen estables por
+compatibilidad con `Contributor.tier`; las **etiquetas visibles** y descripciones
+se editan desde `/admin/tiers` para reforzar el reframe de modos sin migrar datos.
+
+### Sistema de puntos (interno)
+
+Las escalas viven en la tabla `obs_tiers` con `minScore`/`maxScore`. El backend
+sigue calculando puntos con la fórmula del placeholder, pero los puntos sólo se
+usan para asignar modo, no como leaderboard público:
+
+| Rango interno | Umbral | Requisitos típicos |
+|---------------|--------|--------------------|
+| bronze | 0–199 pts | Primer aporte validado |
+| silver | 200–499 pts | 30+ aportes validados |
+| gold | 500–699 pts | 60+ aportes, calidad ≥75%, 3+ meses activo |
+| platinum | 700–999 pts | 90+ aportes, calidad ≥85%, 6+ meses activo |
+| coral | 1000+ pts | Identidad y trayectoria verificadas |
+
+`Contributor.tier` referencia el `slug` de `ObsTier`. La UI admin permite editar
+etiqueta, descripción, umbrales y requisitos pero deshabilita el slug tras crear.
+El backend bloquea el borrado físico si hay `Contributor` usando esa escala
+(debe archivarse, `archived=true`).
 
 ### Validación de aportes
 
@@ -682,11 +706,14 @@ useConflictsStore()       // publicConflicts, filtered, findById
 + `arrecifes.upload.ts` con multer para capas).
 **Entidades:** `ObsReef`, `ObsConflict` (con `geometry: json` GeoJSON opcional),
 `ObsContributor`, `ObsObservation`, `ObsBleachingAlert`, `ObsLayer`, `ObsTier`
-en `src/entities/observatory/`. Auto-sync en dev, no requiere migración manual.
+en `src/entities/observatory/`. Auto-sync en dev; en prod corre la migración
+explícita `1724000000000-AddLayersTiersAndConflictGeometry.ts` (idempotente
+vía `SHOW TABLES/COLUMNS LIKE`).
 
 ⚠️ **Bug TypeORM resuelto:** combinar `@Column({ unique: true })` + `@Index()` en la
 misma columna genera dos índices con el mismo nombre y revienta el `CREATE TABLE` con
-`Duplicate key name`. `unique: true` ya crea el índice — basta con uno.
+`Duplicate key name`. `unique: true` ya crea el índice — basta con uno. La migración
+explícita usa `UNIQUE INDEX` directamente en SQL para evitar el conflicto.
 
 **Públicos** (sin auth, sólo `visible=true && archived=false`):
 

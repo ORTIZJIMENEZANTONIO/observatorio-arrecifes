@@ -118,7 +118,7 @@ type DetectorJobState = {
   status: 'running' | 'done' | 'error'
   reefId: number | null
   startedAt: string
-  progress: { current: number; total: number }
+  progress: { current: number; total: number; currentReefName?: string | null }
   perReef: Array<{ reefId: number; reefName: string; buildingsScanned: number; candidates: number; inserted: number; updated: number; skipped: number; reason?: string }>
   result: CoastalIntrusionRunResult | null
   error: string | null
@@ -126,6 +126,8 @@ type DetectorJobState = {
 
 const runJob = ref<DetectorJobState | null>(null)
 let pollHandle: ReturnType<typeof setInterval> | null = null
+const pollFailures = ref(0)         // 502s consecutivos antes de abortar
+const MAX_POLL_FAILURES = 8         // ~8 × 3s = 24s tolerados
 
 const stopPolling = () => {
   if (pollHandle) {
@@ -139,6 +141,7 @@ const pollJob = async (jobId: string) => {
     const res = await apiFetch<{ success: boolean; data: DetectorJobState }>(
       `/admin/coastal-intrusions/jobs/${jobId}`,
     )
+    pollFailures.value = 0
     runJob.value = res.data
     if (res.data.status === 'done') {
       runResult.value = res.data.result
@@ -151,9 +154,20 @@ const pollJob = async (jobId: string) => {
       running.value = false
     }
   } catch (e: any) {
-    runError.value = e?.data?.error?.message || 'Error al consultar el estado del job'
-    stopPolling()
-    running.value = false
+    // El backend puede tardar en responder mientras turf procesa polígonos
+    // grandes. Toleramos algunos 502/timeouts antes de abortar — el job
+    // sigue corriendo en el servidor independientemente del polling.
+    pollFailures.value++
+    const status = e?.statusCode || e?.response?.status
+    const transient = status === 502 || status === 504 || !status
+    if (!transient || pollFailures.value >= MAX_POLL_FAILURES) {
+      runError.value = e?.data?.error?.message
+        || `No se pudo consultar el estado del job (${pollFailures.value} fallos consecutivos). El job puede seguir corriendo en el servidor — recarga la página en unos minutos para ver resultados.`
+      stopPolling()
+      running.value = false
+    }
+    // Si es transient, dejamos el polling correr — el siguiente tick
+    // intentará de nuevo.
   }
 }
 
@@ -163,6 +177,7 @@ const runDetection = async () => {
   runError.value = ''
   runResult.value = null
   runJob.value = null
+  pollFailures.value = 0
   try {
     const url = runReefId.value
       ? `/admin/coastal-intrusions/run?reefId=${runReefId.value}`
@@ -480,7 +495,10 @@ const osmLink = (osmId: string | null): string =>
       <div class="flex items-center justify-between gap-3">
         <p class="font-semibold text-primary">
           <Icon name="lucide:loader-2" size="14" class="mr-1 inline animate-spin" />
-          Procesando arrecifes — {{ runJob.progress.current }} / {{ runJob.progress.total || '?' }}
+          Procesando — {{ runJob.progress.current }} / {{ runJob.progress.total || '?' }}
+          <span v-if="runJob.progress.currentReefName" class="font-normal text-ink">
+            · {{ runJob.progress.currentReefName }}
+          </span>
         </p>
         <span class="text-ink-muted">
           Tarda hasta 7 min. Puedes cerrar este panel — el job sigue corriendo en el servidor.

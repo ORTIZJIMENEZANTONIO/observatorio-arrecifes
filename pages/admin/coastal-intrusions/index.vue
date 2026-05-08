@@ -154,11 +154,34 @@ const pollJob = async (jobId: string) => {
       running.value = false
     }
   } catch (e: any) {
-    // El backend puede tardar en responder mientras turf procesa polígonos
-    // grandes. Toleramos algunos 502/timeouts antes de abortar — el job
+    const status = e?.statusCode || e?.response?.status
+
+    // 404: el backend se reinició (PM2 OOM o crash) y el job en memoria se
+    // perdió. PERO las detecciones que alcanzó a procesar SÍ están en BD —
+    // cada `intrusionRepo.save()` es síncrono. Recargamos la lista para
+    // mostrar lo que sí se persistió, sin marcar como error ruidoso.
+    if (status === 404) {
+      stopPolling()
+      running.value = false
+      runError.value = ''
+      runResult.value = null
+      // Mensaje informativo en la card de progreso (no rojo de error).
+      runJob.value = {
+        ...(runJob.value || ({} as DetectorJobState)),
+        status: 'done',
+        progress: runJob.value?.progress ?? { current: 0, total: 0, currentReefName: null },
+        perReef: runJob.value?.perReef ?? [],
+        result: null,
+        error: 'El backend se reinició mientras corría el detector. Las detecciones que alcanzó a guardar están en la tabla — verifica abajo. Si necesitas re-correr, vuelve a presionar "Ejecutar detector".',
+      } as DetectorJobState
+      await load()
+      return
+    }
+
+    // 502/504/network: el backend puede tardar en responder mientras turf
+    // procesa polígonos grandes. Toleramos algunos antes de abortar — el job
     // sigue corriendo en el servidor independientemente del polling.
     pollFailures.value++
-    const status = e?.statusCode || e?.response?.status
     const transient = status === 502 || status === 504 || !status
     if (!transient || pollFailures.value >= MAX_POLL_FAILURES) {
       runError.value = e?.data?.error?.message
@@ -485,6 +508,24 @@ const osmLink = (osmId: string | null): string =>
     <!-- Resultado de la última corrida -->
     <div v-if="runError" class="rounded-2xl border border-alert/30 bg-alert/5 p-4 text-sm text-alert">
       {{ runError }}
+    </div>
+
+    <!-- Caso: backend se reinició — info, no error -->
+    <div
+      v-if="runJob && runJob.status === 'done' && !runResult && runJob.error"
+      class="rounded-2xl border border-accent/30 bg-accent/5 p-4 text-xs text-ink"
+    >
+      <p class="font-semibold text-accent-dark">
+        <Icon name="lucide:info" size="14" class="mr-1 inline" />
+        Detección interrumpida
+      </p>
+      <p class="mt-1 text-ink-muted">{{ runJob.error }}</p>
+      <p v-if="runJob.perReef.length" class="mt-2 text-ink-muted">
+        Procesados antes del reinicio:
+        <strong>{{ runJob.perReef.length }}</strong> arrecifes
+        ({{ runJob.perReef.reduce((sum, r) => sum + r.candidates, 0) }} candidatos detectados,
+        {{ runJob.perReef.reduce((sum, r) => sum + r.inserted, 0) }} nuevos en BD).
+      </p>
     </div>
 
     <!-- Job en progreso: progress bar + per-reef en vivo (polling cada 3s) -->

@@ -109,26 +109,83 @@ const load = async () => {
   }
 }
 
+// El detector tarda hasta 7 minutos en procesar 12 arrecifes (queries
+// Overpass + buffer + intersect). Para evitar el 502 del proxy nginx (timeout
+// 60s default) el backend lanza un job background y nosotros hacemos polling
+// del progreso cada 3 segundos.
+type DetectorJobState = {
+  id: string
+  status: 'running' | 'done' | 'error'
+  reefId: number | null
+  startedAt: string
+  progress: { current: number; total: number }
+  perReef: Array<{ reefId: number; reefName: string; buildingsScanned: number; candidates: number; inserted: number; updated: number; skipped: number; reason?: string }>
+  result: CoastalIntrusionRunResult | null
+  error: string | null
+}
+
+const runJob = ref<DetectorJobState | null>(null)
+let pollHandle: ReturnType<typeof setInterval> | null = null
+
+const stopPolling = () => {
+  if (pollHandle) {
+    clearInterval(pollHandle)
+    pollHandle = null
+  }
+}
+
+const pollJob = async (jobId: string) => {
+  try {
+    const res = await apiFetch<{ success: boolean; data: DetectorJobState }>(
+      `/admin/coastal-intrusions/jobs/${jobId}`,
+    )
+    runJob.value = res.data
+    if (res.data.status === 'done') {
+      runResult.value = res.data.result
+      stopPolling()
+      running.value = false
+      await load()
+    } else if (res.data.status === 'error') {
+      runError.value = res.data.error || 'Error al correr el detector'
+      stopPolling()
+      running.value = false
+    }
+  } catch (e: any) {
+    runError.value = e?.data?.error?.message || 'Error al consultar el estado del job'
+    stopPolling()
+    running.value = false
+  }
+}
+
 const runDetection = async () => {
+  stopPolling()
   running.value = true
   runError.value = ''
   runResult.value = null
+  runJob.value = null
   try {
     const url = runReefId.value
       ? `/admin/coastal-intrusions/run?reefId=${runReefId.value}`
       : '/admin/coastal-intrusions/run'
-    const res = await apiFetch<{ success: boolean; data: CoastalIntrusionRunResult }>(
+    const res = await apiFetch<{ success: boolean; data: { jobId: string; status: string } }>(
       url,
       { method: 'POST' },
     )
-    runResult.value = res.data
-    await load()
+    const jobId = res.data?.jobId
+    if (!jobId) throw new Error('Respuesta sin jobId')
+
+    // Primer poll inmediato para tener una cota inferior del progress.
+    await pollJob(jobId)
+    if (running.value) {
+      pollHandle = setInterval(() => { void pollJob(jobId) }, 3000)
+    }
   } catch (e: any) {
-    runError.value = e?.data?.error?.message || 'Error al correr el detector'
-  } finally {
+    runError.value = e?.data?.error?.message || 'Error al iniciar el detector'
     running.value = false
   }
 }
+
+onBeforeUnmount(stopPolling)
 
 const analyzeNovelty = async (id: number) => {
   analyzingId.value = id
@@ -414,8 +471,43 @@ const osmLink = (osmId: string | null): string =>
     <div v-if="runError" class="rounded-2xl border border-alert/30 bg-alert/5 p-4 text-sm text-alert">
       {{ runError }}
     </div>
+
+    <!-- Job en progreso: progress bar + per-reef en vivo (polling cada 3s) -->
+    <div
+      v-if="runJob && runJob.status === 'running'"
+      class="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-xs text-ink"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <p class="font-semibold text-primary">
+          <Icon name="lucide:loader-2" size="14" class="mr-1 inline animate-spin" />
+          Procesando arrecifes — {{ runJob.progress.current }} / {{ runJob.progress.total || '?' }}
+        </p>
+        <span class="text-ink-muted">
+          Tarda hasta 7 min. Puedes cerrar este panel — el job sigue corriendo en el servidor.
+        </span>
+      </div>
+      <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-primary/10">
+        <div
+          class="h-full bg-primary transition-all duration-500"
+          :style="{ width: runJob.progress.total > 0 ? `${(runJob.progress.current / runJob.progress.total) * 100}%` : '5%' }"
+        />
+      </div>
+      <details v-if="runJob.perReef.length" class="mt-3">
+        <summary class="cursor-pointer text-primary">Ver detalle por arrecife</summary>
+        <ul class="mt-2 space-y-1">
+          <li v-for="r in runJob.perReef" :key="r.reefId" class="text-[11px]">
+            <Icon name="lucide:check" size="10" class="mr-1 inline text-eco-dark" />
+            <strong>{{ r.reefName }}</strong> —
+            <span v-if="r.reason" class="text-alert">{{ r.reason }}</span>
+            <span v-else>{{ r.candidates }} candidatos / {{ r.buildingsScanned }} edificios</span>
+          </li>
+        </ul>
+      </details>
+    </div>
+
     <div v-if="runResult" class="rounded-2xl border border-eco/20 bg-eco/5 p-4 text-xs text-ink">
       <p class="font-semibold text-eco-dark">
+        <Icon name="lucide:check-circle" size="14" class="mr-1 inline" />
         Detección completada · {{ runResult.reefsProcessed }} arrecife(s) procesado(s)
       </p>
       <p class="mt-1 text-ink-muted">

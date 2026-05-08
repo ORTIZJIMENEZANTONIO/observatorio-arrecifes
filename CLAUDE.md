@@ -990,6 +990,15 @@ POST   /observatory/arrecifes/admin/coastal-intrusions          # creación manu
                                                                 # ó Polygon/MultiPolygon, source='manual')
 DELETE /observatory/arrecifes/admin/coastal-intrusions/:id      # limpieza manual / descartados
 POST   /observatory/arrecifes/admin/coastal-intrusions/run[?reefId=]
+                                                                # ASYNC: responde 202 con `{ jobId }`
+                                                                # inmediato; el job corre en background
+                                                                # (hasta 7 min por 12 reefs).
+GET    /observatory/arrecifes/admin/coastal-intrusions/jobs     # lista jobs de detector recientes
+GET    /observatory/arrecifes/admin/coastal-intrusions/jobs/:jobId
+                                                                # estado del job: status (running|done|
+                                                                # error), progress {current,total},
+                                                                # perReef[], result, error.
+                                                                # Frontend hace polling cada 3s
 POST   /observatory/arrecifes/admin/coastal-intrusions/:id/verify
 POST   /observatory/arrecifes/admin/coastal-intrusions/:id/dismiss
 POST   /observatory/arrecifes/admin/coastal-intrusions/:id/escalate
@@ -1220,8 +1229,13 @@ Páginas:
 - `/admin/coastal-intrusions` — **Detector de invasión costera**. Tabla con
   KPIs por status (candidato/verificado/escalado/descartado). Botón **"Ejecutar
   detector"** (un reef o todos) dispara `POST /admin/coastal-intrusions/run`
-  que corre el pipeline OSM coastline → buffer 20m ZOFEMAT → intersect con
-  edificios OSM. Botón **"Nueva invasión"** abre modal de captura manual
+  que **lanza un background job** (responde 202 con `jobId` inmediato) y el
+  frontend hace polling cada 3s al `GET /coastal-intrusions/jobs/:jobId` para
+  ver progreso (progress bar + per-reef en vivo). El pipeline corre OSM
+  coastline → buffer 20m ZOFEMAT → intersect con edificios OSM. Tarda hasta 7
+  min para los 12 reefs — la respuesta 202 evita el 502 Bad Gateway que daba
+  el detector cuando era síncrono. Botón **"Nueva invasión"** abre modal de
+  captura manual
   (Point lat/lng → buffer 25m, o GeoJSON Polygon/MultiPolygon pegado), útil
   cuando el edificio aún no está mapeado en OSM. Acciones por fila:
   **preview satelital** (modal con mini-mapa Esri World Imagery + footprint

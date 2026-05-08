@@ -47,6 +47,19 @@ nginx -t
 rc-service nginx reload         # Alpine; en Debian/Ubuntu: systemctl reload nginx
 ```
 
+> ⚠️ **Importante: timeouts de proxy**
+>
+> El bloque `location /api/` de `nginx.conf` incluye `proxy_read_timeout 300s`
+> para que endpoints síncronos pesados (refresh-climate batch NASA POWER,
+> snapshots, análisis NDBI) terminen sin que nginx devuelva **502 Bad Gateway**.
+> Si actualizas la config nginx existente en producción y omites este valor,
+> el detector costero antiguo (síncrono) y los batch endpoints fallarán a los 60s.
+>
+> El detector costero ahora corre en **background job**:
+> `POST /admin/coastal-intrusions/run` devuelve un `jobId` en 202 inmediato
+> y el frontend hace polling al `GET /admin/coastal-intrusions/jobs/:jobId`.
+> Por eso la longitud del job ya no depende del timeout de nginx.
+
 ## 5. SSL con Certbot
 
 ```bash

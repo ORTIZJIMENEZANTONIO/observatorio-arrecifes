@@ -1,0 +1,93 @@
+{
+  "site": {
+    "title": "Reef Observatory",
+    "subtitle": "Mexico · Live",
+    "contribute": "Contribute",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "nav": {
+    "livemap": "Live map",
+    "inventory": "Reefs",
+    "atlas": "Atlas",
+    "dataSources": "Data",
+    "contributors": "Community",
+    "observations": "Observations",
+    "news": "News",
+    "about": "About"
+  },
+  "footer": {
+    "tagline": "Living monitoring platform for Mexican coral reefs",
+    "institution": "Institutional initiative CIIEMAD — Instituto Politécnico Nacional",
+    "license": "Code under Apache 2.0 license. Each data layer preserves its original license.",
+    "rights": "All open data is attributed to its original source."
+  },
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "refresh": "Refresh",
+    "export": "Export",
+    "noData": "No data",
+    "language": "Language",
+    "darkMode": "Dark mode",
+    "lightMode": "Light mode"
+  },
+  "admin": {
+    "panel": "Admin panel",
+    "dashboard": "Dashboard",
+    "monitoring": "Monitoring",
+    "reefs": "Reefs",
+    "observations": "Observations",
+    "atlas": "Atlas",
+    "news": "News",
+    "content": "Content",
+    "alerts": "Alerts",
+    "coastalDetector": "Coastal detector",
+    "layers": "Layers",
+    "community": "Community",
+    "scales": "Scales",
+    "users": "Users",
+    "viewPublic": "View public site",
+    "logout": "Sign out",
+    "loginEmail": "Email",
+    "loginPassword": "Password",
+    "loginSubmit": "Sign in",
+    "kpis": {
+      "publicReefs": "Public reefs",
+      "pendingSubmissions": "Pending submissions",
+      "validatedSubmissions": "Validated submissions",
+      "publicConflicts": "Public conflicts",
+      "contributors": "Contributors"
+    }
+  },
+  "manual": {
+    "title": "Observatory manual",
+    "intro": "How the platform works, which satellite data we use, what each analysis does, and why we chose it that way.",
+    "sections": {
+      "what": "What is this observatory?",
+      "flow": "Data flow",
+      "satellites": "Satellite technologies",
+      "osm": "OpenStreetMap & Overpass",
+      "detector": "Coastal intrusion detector",
+      "stats": "Applied statistics",
+      "tracking": "Usage tracking",
+      "glossary": "Acronym glossary",
+      "limits": "Honest limitations"
+    }
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Open data · NASA · NOAA · CONABIO",
+      "title": "Live observatory of Mexican coral reefs",
+      "subtitle": "Interactive map, near-real-time alerts, atlas of socio-environmental conflicts, and a verified network of fishers, divers, coastal communities and researchers.",
+      "ctaPrimary": "Explore map",
+      "ctaSecondary": "Contribute"
+    }
+  }
+}

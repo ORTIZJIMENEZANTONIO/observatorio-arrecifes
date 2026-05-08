@@ -47,7 +47,7 @@ Arrecifal Mesoamericano, Caribe, Pacífico, etc.).
 - **SSR:** desactivado (`ssr: false`) — SPA mode
 - **Icons:** nuxt-icon (Lucide via Iconify) — `<Icon name="lucide:waves" size="20" />`
 - **Fonts:** Inter (UI) + Space Grotesk (display headings)
-- **Utilities:** VueUse, @nuxtjs/color-mode
+- **Utilities:** VueUse, @nuxtjs/color-mode (dark mode), @nuxtjs/i18n (es/en)
 - **TypeScript:** strict
 - **Convenciones:** todos los identificadores en inglés, arrow functions, camelCase,
   mobile-first
@@ -82,6 +82,27 @@ observatorio-arrecifes/
                             # Cada uno registra los `Chart.register(...)` propios y expone
                             # props `:data` y `:options`. Auto-importados como ChartsXxx
     home/                   # (placeholder) home-only sections
+    admin/                   # Manual.vue — manual del observatorio embebido en
+                             # /admin (dashboard). 9 secciones colapsables con
+                             # explicación accesible de tecnologías satelitales
+                             # (NOAA CRW, NASA POWER, Sentinel-2, OSM/Overpass,
+                             # GEE), fases del detector ZOFEMAT, estadística
+                             # aplicada (bootstrap, Spearman, K-W, Bonferroni,
+                             # Mann-Kendall, K-means, Shannon, CHI), tracking
+                             # de uso, glosario y limitaciones honestas.
+                             # InfoTooltip.vue — `<AdminInfoTooltip text="…">`
+                             # con hover desktop / tap mobile, 3 placements,
+                             # 2 variants (inline | icon-only); usa data/
+                             # admin-glossary.ts como fuente de definiciones.
+                             # SortableTh.vue — `<th>` clickeable con flecha
+                             # asc/desc/none, accesible (aria-sort + Enter/
+                             # Space). Pareja con `useSortableList`.
+                             # SatelliteThumb.client.vue — Leaflet wrapper
+                             # con basemap Esri World Imagery + render del
+                             # polígono encima. Usado en /admin/coastal-
+                             # intrusions para preview satelital del footprint.
+                             # analytics/DataMiningBuilder.vue — modelado data
+                             # mining (subcomponente de /admin/analytics)
   composables/
     useFormatters.ts        # es-MX locale + maps de tipos a etiquetas (es), badge classes
     useScrollReveal.ts      # IntersectionObserver para .reveal/.is-visible
@@ -95,6 +116,18 @@ observatorio-arrecifes/
                             # Usada por <CommonCountUp> en hero, KPIs y cards de alertas
     useBackendSync.ts       # Orquesta fetch de reefs/conflicts/contributors/observations/layers
                             # desde cercu-backend con fallback silencioso al mock
+    useCmsContent.ts        # Helper de páginas públicas para el CMS. `useCmsContent(slug)`
+                            # dispara `fetchPage` en mount + devuelve `list(key)` y
+                            # `one(key)` ya bound al pageSlug. Incluye
+                            # `interpolateCmsText(text, { var })` para placeholders {count}
+    usePaginatedList.ts     # Helper genérico para tablas admin: dado un Ref<T[]>
+                            # filtrado, devuelve `paginated`, `currentPage`, `totalPages`,
+                            # `perPage`. Resetea a página 1 si los filtros recortan
+                            # el dataset por debajo del rango actual
+    useSortableList.ts      # Sort genérico para tablas admin con coerción inteligente
+                            # (números, ISO dates, booleanos, locale es-MX). Soporta paths
+                            # anidados ("contributor.displayName"). Cycle: none → asc →
+                            # desc en cada click sobre la misma columna
     useTracking.ts          # Tracking anónimo de interacciones. Sesión persistente en
                             # localStorage (uuid v4), batching (lote 20 ó 5s) → POST
                             # /observatory/arrecifes/events. Click delegation captura
@@ -116,6 +149,16 @@ observatorio-arrecifes/
     observations.ts         # 6 aportes en distintos estados (validated/in_review/pending)
     conflicts.ts            # 6 casos socioambientales (Tren Maya, cruceros, FONATUR, etc.)
     bleaching-alerts.ts     # Snapshot NOAA CRW por reefId (DHW, SST, anomaly, level)
+    admin-glossary.ts       # Diccionario centralizado `GLOSSARY` con 35+ definiciones cortas
+                            # de términos técnicos del admin (snapshot, DHW, CHI, ZOFEMAT, NDBI,
+                            # tier, slug, prospect, WMS, etc.) en español accesible. Cada entrada
+                            # ≤180 chars. Lo consume `<AdminInfoTooltip>` para mostrar la def.
+    cms-defaults.ts         # Catálogo CMS: `cmsDefaults[pageSlug][sectionKey] = items[]`
+                            # con todo el copy editorial (home/about/contribute/footer/heros)
+                            # como fallback cuando el backend no responde.
+                            # `cmsPageCatalog` describe páginas/secciones para el editor admin
+                            # (label, help, ícono lucide). `cmsFieldLabels` y
+                            # `cmsLongTextFields` controlan el rendering del form
     kpis.ts                 # KPIs computados (incluyen `rawValue: number` para count-up)
   deploy/
     nginx.conf              # server block SSL + redirect 80→443 (arrecifes.cercu.com.mx)
@@ -130,22 +173,33 @@ observatorio-arrecifes/
   pages/
     index.vue               # Home: hero océano + reef-card stack flotante + KPIs bento +
                             # 3 features (cards centradas) + alertas live + top contributors + CTA.
-                            # Hero stats e indicadores numéricos animan con <CommonCountUp> al cargar
+                            # Hero stats e indicadores numéricos animan con <CommonCountUp> al cargar.
+                            # Todo el copy editorial (hero, features, sectionTitle, alerts,
+                            # contributorsTeaser, cta) se lee del CMS vía `useCmsContent('home')`
     livemap.vue             # Mapa Google-Earth-style: basemap switcher (Satélite/Batimetría/Mapa
                             # + Globo dinámico earth.nullschool con iframe + selectores de capa,
                             # proyección y vista), buscador con flyTo, leyenda, panel WMS con
                             # badges Live/Catálogo
-    inventory/index.vue     # Cards 12 arrecifes + filtros + sort + drawer detalle
-    atlas/index.vue         # Atlas EJAtlas-style: drivers vs resistance + drawer detalle
-    data-sources/index.vue  # Catálogo de capas con filtros + atribuciones + descargas
-    contributors/index.vue  # Tier ladder + filtros + leaderboard + CTA
+    inventory/index.vue     # Cards 12 arrecifes + filtros + sort + drawer detalle. Hero CMS
+    atlas/index.vue         # Atlas EJAtlas-style: drivers vs resistance + drawer detalle. Hero CMS
+    data-sources/index.vue  # Catálogo de capas con filtros + atribuciones + descargas. Hero CMS
+    contributors/index.vue  # Tier ladder + filtros + leaderboard + CTA. Hero, modesIntro,
+                            # networkCallout y cta vienen del CMS
     contribute/index.vue    # Form multi-tipo (foto/dron/satelital/transecto/conflicto) +
-                            # validación → cola de revisión
-    observations/index.vue  # Lista de aportes con estados + tipo + crédito + calidad
-    about/index.vue         # Misión, fuentes, sistema de reputación, validación, licencias
-    admin/                  # CRUD admin: reefs, observations, conflicts (con geometry GeoJSON),
-                            # contributors, tiers (escalas), layers (con upload de archivos),
-                            # usuarios. Layout `admin.vue`, middleware `admin`
+                            # validación → cola de revisión. Hero, sidebar (3 cards) y notice CMS
+    observations/index.vue  # Lista de aportes con estados + tipo + crédito + calidad. Hero CMS
+    noticias/index.vue      # Listado editorial. Hero (eyebrow/title/subtitle) CMS
+    about/index.vue         # Misión, fuentes, sistema de reputación, validación, licencias.
+                            # 8 secciones (hero/mission/inspirations/sources/reputationIntro/
+                            # validation/licenses/contact) leídas del CMS; tabla de tiers viene
+                            # del store de tiers (editable en /admin/tiers)
+    admin/                  # CRUD admin: reefs, observations (con edit + review), conflicts
+                            # (con geometry GeoJSON), contributors, tiers, layers (upload),
+                            # alerts (NOAA CRW manual), coastal-intrusions (detector OSM
+                            # + creación manual), contenido (CMS), news, usuarios.
+                            # `analytics` integra interacciones + descriptivo + inferencial
+                            # + modelado + histórico (snapshots time-series).
+                            # Layout `admin.vue`, middleware `admin`
   stores/
     reefs.ts                # publicReefs (filtra visible/archived) + filtros + setReefs +
                             # localStorage overrides (obs-arrecifes-reef-overrides)
@@ -153,6 +207,10 @@ observatorio-arrecifes/
     observations.ts         # validated/pending/filtered + submit() (citizen submission)
     contributors.ts         # leaderboard, filtros por role/tier
     conflicts.ts            # publicConflicts + filtros intensidad/estado/amenaza
+    cms.ts                  # CMS sections cache + helpers `getSection`, `getOne`, `setSection`,
+                            # `fetchPage` (1 request → todas las secciones), `invalidatePage`.
+                            # Fallback automático a `cmsDefaults` cuando la red falla.
+                            # Lo consume `useCmsContent` y el editor `/admin/contenido/[pageSlug]`
   types/
     index.ts                # Reef, DataLayer (+ LayerKind, file fields), Contributor, Observation,
                             # SocioEnvironmentalConflict (+ geometry GeoJSON), BleachingAlert,
@@ -532,6 +590,60 @@ reputationScore = (validatedContributions * 5)
 
 ## Design System
 
+### Modo oscuro
+
+Activado vía `tailwind.config.ts` con `darkMode: 'class'` + `@nuxtjs/color-mode`
+(classSuffix vacío añade `class="dark"` automáticamente al `<html>` cuando el
+usuario alterna). Tokens definidos como CSS custom properties en
+`assets/css/main.css`:
+
+```
+:root      → --c-bg #F4F8FA · --c-surface #FFFFFF · --c-ink #0F172A · ...
+.dark      → --c-bg #0A1620 · --c-surface #14252F · --c-ink #E6F0F5 · ...
+```
+
+Identidad "modo bajo el agua nocturno": fondo abismal teal-oscuro preservando
+los acentos primary/coral/eco. Contraste WCAG AA verificado en texto principal.
+
+Las clases base del sistema (`.card`, `.kpi-card`, `.input`, `.btn-outline`,
+`.btn-ghost`, `.panel`) ya leen los tokens, así que cambian automáticamente.
+Para utilidades tailwind crudas (`bg-white`, `bg-gray-50`, `text-ink`,
+`border-gray-{100,200,300}`, `text-gray-{500,600,700}`, `text-slate-custom`,
+`divide-gray-*`) hay overrides en `@layer utilities` con selector compuesto
+`.dark .bg-white { ... }` — la inmensa mayoría de pages se adaptan sin tocar
+nada. Para piezas custom usa `dark:` clase como siempre.
+
+**Toggle visible**: `<CommonColorModeToggle />` (sun/moon Lucide). Variantes:
+- `variant="icon"` (default) — botón circular compacto, usado en header público
+  desktop y antes del menú hamburger en mobile.
+- `variant="menu"` — item con texto "Modo oscuro/claro", usado en mobile drawer
+  del header público y en el sidebar admin.
+
+### Internacionalización (es/en)
+
+`@nuxtjs/i18n` v8 configurado con:
+- `strategy: 'no_prefix'` — sin `/en/...` en URL; preferencia en cookie
+  `arrecifes-i18n` + localStorage.
+- `defaultLocale: 'es'` (es-MX), `en` (en-US) disponible.
+- `langDir: 'i18n/locales/'` con `es.json` y `en.json`.
+
+**Toggle visible**: `<CommonLocaleSwitcher />` con misma API
+(`variant="icon"` | `"menu"`). Click cicla entre locales disponibles.
+
+**Cobertura actual**: strings de "marco" están extraídas a `t('key')` —
+header nav (5+CTA), site title/subtitle, sidebar admin (10 items + acciones),
+common (botones, idioma, modo), admin KPIs/manual sections, hero home.
+**El contenido profundo de páginas internas sigue hard-coded en español**
+(filtros, formularios, modales, copy de páginas como `/inventory`,
+`/atlas`, etc.). Para extender: añade la key en `i18n/locales/{es,en}.json`
+y reemplaza el string por `{{ $t('key') }}` (template) o `t('key')` (script
+con `const { t } = useI18n()`).
+
+**Convención de keys**: jerarquía por scope (`site.title`, `nav.atlas`,
+`admin.dashboard`, `admin.kpis.publicReefs`, `manual.sections.satellites`).
+Los strings dentro de un componente específico pueden vivir bajo
+`pages.{nombre}.*` o `components.{nombre}.*` cuando se extraigan.
+
 ### Color palette
 
 | Token | Hex | Usage |
@@ -803,6 +915,8 @@ explícita usa `UNIQUE INDEX` directamente en SQL para evitar el conflicto.
 ```
 GET  /observatory/arrecifes/reefs?ocean=&state=&status=&search=
 GET  /observatory/arrecifes/reefs/:id
+GET  /observatory/arrecifes/reefs/metrics?days=N                # serie de tiempo (todos los reefs)
+GET  /observatory/arrecifes/reefs/:id/metrics?days=N            # serie de tiempo de un solo reef
 GET  /observatory/arrecifes/conflicts?intensity=&status=&state=
 GET  /observatory/arrecifes/conflicts/:id
 GET  /observatory/arrecifes/contributors?role=&tier=
@@ -816,6 +930,9 @@ GET  /observatory/arrecifes/layers/:id                          # acepta id num�
 GET  /observatory/arrecifes/layers/:id/download                 # archivo o redirect 302
 GET  /observatory/arrecifes/tiers                               # escalas reputacionales
 GET  /observatory/arrecifes/tiers/:id                           # acepta id o slug
+GET  /observatory/arrecifes/cms/:pageSlug/:sectionKey           # devuelve TODAS las secciones de la
+                                                                # página (sectionKey se ignora; basta
+                                                                # pasar `_all` en el front).
 POST /observatory/arrecifes/events                              # ingest tracking anónimo
                                                                 # (lote ≤50 eventos, rate-limit 60/min/IP)
 ```
@@ -828,19 +945,65 @@ GET    /observatory/arrecifes/admin/summary                     # dashboard coun
 GET    /observatory/arrecifes/admin/analytics/summary?days=N    # métricas de uso
                                                                 # (totals, byType, series diaria,
                                                                 # topPaths, topTargets) — N ∈ [1, 180]
+
+# ── Reefs + climatología + snapshots históricos ──
 CRUD   /observatory/arrecifes/admin/reefs[/:id]
 POST   /observatory/arrecifes/admin/reefs/refresh-climate       # NASA POWER batch (12 reefs)
 POST   /observatory/arrecifes/admin/reefs/:id/refresh-climate   # NASA POWER de un solo reef
+POST   /observatory/arrecifes/admin/reefs/snapshot              # captura idempotente del día
+DELETE /observatory/arrecifes/admin/reefs/snapshots/:id         # borra un snapshot puntual
+
+# ── Conflictos socioambientales (Atlas) ──
 CRUD   /observatory/arrecifes/admin/conflicts[/:id]             # body acepta `geometry`
+
+# ── Comunidad ──
 CRUD   /observatory/arrecifes/admin/contributors[/:id]
+CRUD   /observatory/arrecifes/admin/tiers[/:id]                 # escalas + modos de participación
+
+# ── Aportes ciudadanos ──
 GET    /observatory/arrecifes/admin/observations[/:id]
+POST   /observatory/arrecifes/admin/observations                # admin crea aporte directo
+                                                                # (default status='validated', útil
+                                                                # para backfill/migración)
 POST   /observatory/arrecifes/admin/observations/:id/review     # body: {status, qualityScore?, reviewerNotes?}
+PATCH  /observatory/arrecifes/admin/observations/:id            # edita metadatos sin cambiar estado
+                                                                # (title, lat, lng, capturedAt, reefId,
+                                                                # type, tags, attachments, visible/archived)
 DELETE /observatory/arrecifes/admin/observations/:id
-POST   /observatory/arrecifes/admin/alerts/bleaching            # ingest NOAA CRW
+
+# ── Alertas de blanqueamiento ──
+GET    /observatory/arrecifes/admin/alerts/bleaching            # listado completo (filtros: reefId, level)
+POST   /observatory/arrecifes/admin/alerts/bleaching            # ingest manual (sincroniza reef.status)
+PATCH  /observatory/arrecifes/admin/alerts/bleaching/:id        # edita campos; si cambia level,
+                                                                # actualiza reef.bleachingAlert + status
+DELETE /observatory/arrecifes/admin/alerts/bleaching/:id        # recalcula bleachingAlert con la
+                                                                # alerta más reciente restante
+
+# ── Capas de datos abiertas ──
 CRUD   /observatory/arrecifes/admin/layers[/:id]
 POST   /observatory/arrecifes/admin/layers/:id/upload           # multipart "file" (≤50 MB)
-CRUD   /observatory/arrecifes/admin/tiers[/:id]
+
+# ── Detector de invasión costera ──
+GET    /observatory/arrecifes/admin/coastal-intrusions[?reefId=&status=]
+GET    /observatory/arrecifes/admin/coastal-intrusions/:id
+POST   /observatory/arrecifes/admin/coastal-intrusions          # creación manual (Point→buffer 25m
+                                                                # ó Polygon/MultiPolygon, source='manual')
+DELETE /observatory/arrecifes/admin/coastal-intrusions/:id      # limpieza manual / descartados
+POST   /observatory/arrecifes/admin/coastal-intrusions/run[?reefId=]
+POST   /observatory/arrecifes/admin/coastal-intrusions/:id/verify
+POST   /observatory/arrecifes/admin/coastal-intrusions/:id/dismiss
+POST   /observatory/arrecifes/admin/coastal-intrusions/:id/escalate
+POST   /observatory/arrecifes/admin/coastal-intrusions/:id/analyze-novelty
+POST   /observatory/arrecifes/admin/coastal-intrusions/analyze-novelty-batch
+POST   /observatory/arrecifes/admin/coastal-intrusions/:id/timeseries  # Fase 3 deep-dive
+
+# ── CMS de copy editorial (compartido entre observatorios) ──
+GET    /observatory/arrecifes/admin/cms/:pageSlug               # todas las secciones de la página
+PUT    /observatory/arrecifes/admin/cms/:pageSlug/:sectionKey   # upsert; body { items: object[] }
+
+# ── Usuarios admin ──
 CRUD   /observatory/arrecifes/admin/usuarios[/:id]              # gestión de admins (multi-obs)
+
 POST   /observatory/auth/login                                  # JWT 15min, refresh 7d
 GET    /observatory/auth/me
 ```
@@ -953,13 +1116,52 @@ Todas las páginas siguen el **mismo patrón tabular**:
 2. Botón **mobile-only** `Mostrar/Ocultar filtros` con badge de filtros activos
 3. Filters card (search + dropdowns + contador resultados + `Limpiar filtros`).
    Siempre desplegado en `md+`; toggleable en mobile vía `filtersOpen` ref.
-4. Tabla `table-base` con acciones `pencil` (edit) + `trash-2` (delete) por fila
-5. Modal único Create/Edit (`editingId === 0` crea, `>0` edita)
+4. Tabla `table-base` con headers **clickeables como sorters** (cycle none →
+   asc → desc), acciones `pencil` (edit) + `trash-2` (delete) por fila.
+   Componente reusable `<AdminSortableTh sort-key="..." :current-key="sortKey"
+   :current-dir="sortDir" @sort="toggleSort('...')">` muestra una flecha
+   indicadora del estado actual del sort.
+5. **Paginación** vía `<CommonPaginationControls>` debajo de la tabla
+   (15-20 items por página por default, oculto si totalPages ≤ 1).
+6. Modal único Create/Edit (`editingId === 0` crea, `>0` edita).
+7. **Tooltips** en términos técnicos vía `<AdminInfoTooltip text="…">` —
+   subraya el término con punteado discreto; hover en desktop, tap en mobile.
+
+Pipeline reactivo estándar de cada tabla:
+```
+items.value (raw del API)
+    ↓
+filtered: computed (search + filtros UI)
+    ↓
+sorted: useSortableList(filtered, { defaultKey, defaultDir }).sorted
+    ↓
+paginated: usePaginatedList(sorted, { perPage }).paginated
+    ↓
+<tr v-for="x in paginated">
+```
 
 Páginas:
 - `/admin/login` — email + password contra `POST /observatory/auth/login`
-- `/admin` — dashboard con summary (reefs, conflicts, contributors, observations)
-- `/admin/analytics` — **Monitoreo y análisis** (4 pestañas):
+- `/admin` — **dashboard** con resumen consolidado de toda la plataforma:
+  - 8 KPI cards principales con tooltips (arrecifes públicos, aportes
+    pendientes, validados, conflictos, colaboradores, capas, alertas
+    críticas, noticias publicadas). Cada card muestra "público / total" y
+    tiene un `?` con la definición del concepto.
+  - Banda de **Acciones rápidas**: capturar snapshot, refrescar
+    climatología NASA POWER, ir a detector/cola de prospectos/contenido
+    (con badge de prospects pendientes).
+  - 8 cards de monitoreo en grid 2-cols: cola de revisión por status,
+    arrecifes por estatus, alertas por nivel (con KPI "última observada
+    hace…"), detector costero por status, red por modo, capas externas vs
+    subidas, noticias + prospectos, snapshots + climatología, CMS.
+  - El backend `getSummary` se extendió para devolver TODOS los counts
+    paralelizados: `content/totals` (reefs/conflicts/contributors/layers/
+    news/tiers/cmsSections/snapshots), `observationsByStatus`,
+    `reefsByStatus`, `contributorsByTier`, `contributorsVerified`,
+    `alertsByLevel`, `alertsCritical` (DHW≥4), `latestAlertAt`,
+    `coastalIntrusions`, `layersByKind`, `newsProspects`, `snapshots`,
+    `climate.reefsWithData`.
+- `/admin/analytics` — **Monitoreo y análisis** (5 pestañas):
   - **Interacciones** — KPIs (pageviews, sesiones, clicks, envíos), evolución diaria
     line chart, tipo de evento doughnut, top rutas y top elementos `data-track`
   - **Descriptivo** — KPIs cobertura coral (media/mediana/IQR/rango), histograma de
@@ -974,13 +1176,20 @@ Páginas:
     **Actualizar climatología** que dispara el batch
   - **Modelado** — k-means de arrecifes (k configurable, normalización min-max),
     pronóstico de aportes con regresión lineal (slope + R²)
+  - **Histórico** — serie de tiempo de los snapshots `obs_reef_metric_snapshots`.
+    Botón "Capturar snapshot ahora" (idempotente por día), filtros arrecife +
+    ventana (30/90/180/365/all), LineChart con doble eje Y (cobertura+CHI / DHW),
+    tabla paginada (200 más recientes) con eliminar puntual. Comparte el ref
+    `snapshots` con la pestaña Inferencial (Mann-Kendall / Theil-Sen) — un solo
+    fetch al mount alimenta ambas vistas; los filtros del Histórico son
+    in-memory para no re-pegarle al endpoint
   - Cada pestaña abre con un banner explicativo y cada gráfica lleva un párrafo
     debajo del título que responde "qué representa, cómo leerlo, qué decisión informa"
   - **Selector de observatorio** visible sólo para superadmin (Arrecifes / Humedales /
     Techos verdes) — la pestaña Interacciones consulta `/admin/analytics/summary` del
     observatorio elegido vía `apiFetch(..., { observatory })`. Las pestañas
-    descriptivo/inferencial/modelado se deshabilitan si el observatorio elegido no es
-    arrecifes (los stores locales sólo contienen ese dataset)
+    descriptivo/inferencial/modelado/histórico se deshabilitan si el observatorio
+    elegido no es arrecifes (los stores locales sólo contienen ese dataset)
 - `/admin/reefs` — CRUD completo + galería + filtros: Litoral, Estatus, Protección, Visibilidad
 - `/admin/observations` — tabla cola de revisión + filtros: Estado, Tipo, Reef, Colaborador
 - `/admin/conflicts` — CRUD completo + sección "Ubicación geográfica" (3 modos: sin
@@ -996,6 +1205,52 @@ Páginas:
 - `/admin/usuarios` — CRUD completo de administradores. Modal por secciones (datos,
   rol y permisos, observatorios). Crear superadmin requiere ser superadmin. Borrado
   bloqueado por backend si es el único superadmin. Permiso `manage_users`
+- `/admin/observations` — Cola de revisión + **edición de metadatos**.
+  Modal "Revisar" (decisión validate/reject/needs_more_info + qualityScore +
+  notas). Modal "Editar" (lápiz ámbar) corrige title/description/lat/lng/
+  capturedAt/reefId/type/tags sin alterar el estado de revisión — útil para
+  typos o coordenadas mal capturadas. Permiso `review_submissions`.
+- `/admin/alerts` — **Alertas de blanqueamiento**. KPIs por nivel
+  (no_stress/watch/warning/alert_1/alert_2), filtros por arrecife y nivel,
+  tabla con DHW/SST/anomalía/observedAt. Modal "Nueva alerta" para captura
+  manual cuando NOAA tarda o hay datos verificados de campo. Crear/editar
+  sincroniza `reef.bleachingAlert` y `reef.status`; eliminar recalcula con
+  la alerta más reciente restante. Link a producto NOAA si la alerta lleva
+  `productUrl`. Permiso `manage_reefs`.
+- `/admin/coastal-intrusions` — **Detector de invasión costera**. Tabla con
+  KPIs por status (candidato/verificado/escalado/descartado). Botón **"Ejecutar
+  detector"** (un reef o todos) dispara `POST /admin/coastal-intrusions/run`
+  que corre el pipeline OSM coastline → buffer 20m ZOFEMAT → intersect con
+  edificios OSM. Botón **"Nueva invasión"** abre modal de captura manual
+  (Point lat/lng → buffer 25m, o GeoJSON Polygon/MultiPolygon pegado), útil
+  cuando el edificio aún no está mapeado en OSM. Acciones por fila:
+  **preview satelital** (modal con mini-mapa Esri World Imagery + footprint
+  encima + 4 links externos: Google Maps satélite, Google Earth 3D, Sentinel-2
+  EO Browser TRUE_COLOR de los últimos 90 días, OSM original — ver
+  `<AdminSatelliteThumb>`), **verificar**, **descartar** (con notas),
+  **escalar a conflicto** (crea `ObsConflict` con
+  `threats=['coastal_development']`, geometry del footprint, oculto hasta que
+  se complete narrativa), **eliminar** (limpia manuales o descartados). Cada
+  celda linkea al objeto OSM original. Permiso `manage_conflicts`. Banner de
+  limitaciones (OSM coverage desigual, buffer ≠ ZOFEMAT legal, detección ≠
+  invasión probada) visible en el header.
+  - **Fase 2 (NDBI Sentinel-2)**: columna **Novedad** 0–100 con código de
+    color (verde = legacy / ámbar = parcial / rojo = reciente). Botón
+    **"Analizar novedad (batch)"** corre `POST /admin/coastal-intrusions/
+    analyze-novelty-batch` (procesa 30 candidatos sin score, throttle 600
+    ms entre llamadas GEE). Botón ✨ por fila para análisis individual
+    (`POST .../:id/analyze-novelty`). Filtro **"Sólo recientes (NDBI ≥ 60)"**
+    para enfocar revisión en construcciones probablemente nuevas. Tooltip
+    sobre el badge muestra `Δ NDBI = baseline → actual` y los rangos de
+    fechas usados. Si GEE no está configurado en .env, el endpoint
+    devuelve 503 con mensaje claro.
+- `/admin/contenido` — **CMS de copy editorial**. Lista de 10 páginas
+  editables (home, about, contribute, inventory, atlas, data-sources,
+  contributors, noticias, observations, footer) — cada una linkea a
+  `/admin/contenido/:pageSlug` con accordion por sección, edición in-place
+  con auto-binding al shape del default, mover/añadir/eliminar bloques,
+  "Restaurar default", chips de "Sin guardar". Cada save invalida la cache
+  pública vía `useCmsStore().invalidatePage`. Permiso `manage_cms`.
 
 Composables/stores:
 - `stores/auth.ts` — login/logout, `loadFromStorage`, `hasPermission`, `isSuperadmin`.
@@ -1025,22 +1280,195 @@ Cada página admin debe declarar `definePageMeta({ layout: 'admin', middleware: 
    pantalla protegida nunca queda en el back-stack del navegador, así que la flecha
    "atrás" jamás regresa a una vista bloqueada.
 
+## CMS — Contenido editorial editable (✅ implementado)
+
+Plataforma multi-tenant para que un editor sin conocimiento técnico pueda cambiar
+el copy visible del sitio público desde `/admin/contenido` sin tocar código.
+
+### Arquitectura
+
+```
+data/cms-defaults.ts    ──┐  fallback síncrono (también es la verdad de origen)
+                          ├──> stores/cms.ts (Pinia)
+useCmsContent(page)  ─────┘    ├─ getSection / getOne (sync con fallback)
+                               ├─ fetchPage (1 request → todas las secciones)
+                               └─ invalidatePage (después de un save admin)
+                                      │
+   GET /observatory/arrecifes/cms/<page>/_all  ◄──┘
+   PUT /observatory/arrecifes/admin/cms/<page>/<sectionKey>
+```
+
+- **Frontend público** (`pages/*.vue`, `components/common/AppFooter.vue`): cada
+  página llama `useCmsContent('home')` (o el slug que toque) y consume `hero`,
+  `cta`, `features` etc. con tipado explícito. Si la red falla o el backend
+  aún no tiene esa sección, se muestra el default de `data/cms-defaults.ts`.
+- **Frontend admin** (`pages/admin/contenido/`):
+  - `index.vue` lista las 10 páginas registradas en `cmsPageCatalog`.
+  - `[pageSlug].vue` carga `/admin/cms/:pageSlug` (versión más reciente),
+    pinta un accordion por sección y deriva los campos editables del shape
+    del primer item del default. Save por sección (no global). Auto-binding:
+    si añades un campo nuevo en `cmsDefaults`, el editor lo recoge solo.
+- **Backend** (`cercu-backend`): la entidad `ObsCmsSection` tiene columna
+  `observatory` (multi-tenant) con índice `(observatory, pageSlug, sectionKey)`.
+  Migración `1736000000000-AddObservatoryToCmsSections` la añade idempotente
+  con backfill a `'humedales'` para no romper a los hermanos.
+
+### Páginas y secciones registradas
+
+| pageSlug | secciones (sectionKey) |
+|----------|------------------------|
+| `home` | hero · features · sectionTitle · alerts · contributorsTeaser · cta |
+| `about` | hero · mission · inspirations · sources · reputationIntro · validation · licenses · contact |
+| `contribute` | hero · sidebar · notice |
+| `contributors` | hero · modesIntro · networkCallout · cta |
+| `inventory` · `atlas` · `data-sources` · `noticias` · `observations` | hero |
+| `footer` | brand · attribution · sources · quickLinks · institutional |
+
+Las **secciones de un solo bloque** (hero, cta, brand…) llevan `items=[{...}]`
+con un solo objeto. Las **secciones de lista** (features, inspirations, sources,
+sidebar, validation, quickLinks…) llevan `items=[{...}, {...}, ...]` y permiten
+mover/añadir/eliminar bloques desde el editor admin.
+
+### Placeholders dinámicos
+
+Para insertar números calculados en runtime sin perder editabilidad, los
+defaults usan llaves `{var}`:
+
+```ts
+// inventory hero subtitle
+'{count} arrecifes coralinos documentados…'
+```
+
+```vue
+<!-- pages/inventory/index.vue -->
+{{ interpolateCmsText(hero?.subtitle, { count: store.totalCount }) }}
+```
+
+### Etiquetas y rendering del form admin
+
+`cmsFieldLabels` mapea claves a etiquetas amigables en español
+(`titleLine2Highlight` → "Título — línea 2 (resaltado)") y `cmsLongTextFields`
+declara qué campos van como `<textarea>`. Los campos cuyo nombre coincide con
+`/^(href|to|primaryTo|secondaryTo|linkTo)$/` se renderizan como `type="url"`,
+y `accent` cae a un `<select>` con tokens de paleta (`primary/coral/eco/...`).
+
+### Permisos
+
+Permiso `manage_cms` tanto para el editor (`/admin/contenido`) como para el
+módulo de noticias (`/admin/news`). Se añadió en `middleware/admin.ts` y al
+sidebar de `layouts/admin.vue`.
+
+## Patrón de tabla admin reusable (✅ implementado)
+
+Toda página admin con dataset listo-para-tabla sigue este flujo:
+
+```ts
+// 1. Datos crudos desde el API
+const items = ref<T[]>([])
+
+// 2. Filtros UI → computed reactivo
+const filtered = computed(() => items.value.filter(...))
+
+// 3. Sort por click en headers
+const { sorted, sortKey, sortDir, toggleSort } = useSortableList(filtered, {
+  defaultKey: 'name',         // opcional, sort inicial al mount
+  defaultDir: 'asc',          // 'asc' por default
+})
+
+// 4. Paginación in-memory
+const { paginated, currentPage, totalPages, perPage } = usePaginatedList(sorted, {
+  perPage: 15,
+})
+```
+
+```vue
+<table class="table-base">
+  <thead>
+    <tr>
+      <AdminSortableTh
+        sort-key="name"
+        :current-key="sortKey"
+        :current-dir="sortDir"
+        align="left"
+        @sort="toggleSort('name')"
+      >
+        Arrecife
+      </AdminSortableTh>
+      <!-- Columnas no-sortables (acciones, agregadas) quedan como `<th>` simples -->
+      <th class="text-right">Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr v-for="x in paginated" :key="x.id">…</tr>
+  </tbody>
+</table>
+
+<CommonPaginationControls
+  v-if="filtered.length > 0"
+  v-model:current-page="currentPage"
+  :total-pages="totalPages"
+  :total-items="filtered.length"
+  :per-page="perPage"
+/>
+```
+
+### `useSortableList` — coerción inteligente
+
+| Tipo de valor | Comparación |
+|---|---|
+| `number` | aritmética |
+| `boolean` | false < true |
+| string ISO date | `localeCompare` (es-MX, numeric) |
+| string numérico (decimales TypeORM) | coerción a Number |
+| string general | `localeCompare` (es-MX, numeric, base sensitivity) |
+| `Date` | `getTime()` |
+| `null/undefined/''` | siempre al final, independiente de la dirección |
+
+Soporta paths anidados: `useSortableList(filtered).toggleSort('contributor.displayName')`.
+
+Tablas con sort wireado: `/admin/reefs`, `/admin/observations`, `/admin/conflicts`,
+`/admin/contributors`, `/admin/layers`, `/admin/alerts`, `/admin/coastal-intrusions`,
+`/admin/news` (artículos), `/admin/usuarios`, `/admin/tiers`. Sort defaults sensatos
+por defecto (más recientes primero, por reputación, por sortOrder, etc.).
+
+### Tooltips de glosario
+
+Componente `<AdminInfoTooltip text="…" [variant=inline|icon] [placement=top|bottom|right]>`.
+- **inline** (default): subraya el slot con punteado discreto + icono `?` al lado.
+- **icon**: sólo el icono (típico junto a un label de form, sin texto contenedor).
+
+Las definiciones viven en `data/admin-glossary.ts` como `GLOSSARY` const. Cobertura
+actual: snapshot, dhw, sst, sstAnomaly, chi, liveCoralCover, bleachingAlert, nasaPower,
+noaaCrw, zofemat, ndbi, ndvi, noveltyScore, osm, gee, observation, qualityScore, tier,
+reputationScore, modeTitle, audience, cms, pageSlug, sectionKey, cmsItem, placeholder,
+layer, wms, wmts, layerKind, conflict, geometry, coastalIntrusion,
+coastalIntrusionStatus, news, prospect, trackingEvent, slug, visible, archived.
+
+Para añadir un término nuevo: edita `data/admin-glossary.ts` (≤180 chars en lenguaje
+accesible, sin jargon innecesario) y úsalo donde aparezca en el admin.
+
 ## Roadmap (v2+)
 
 - **Render de geometría de conflictos en mapa** — `/atlas` y `/livemap` deben pintar
   `conflict.geometry` con `L.geoJSON()` (Point/LineString/Polygon) cuando esté presente,
   cayendo a `reefIds[]` cuando no.
-- **Panel de revisión enriquecido** — adjuntos de aportes (galería de imágenes/video)
-  desde cola de observaciones
+- **Panel de revisión enriquecido** — adjuntos de aportes (galería de imágenes/video +
+  upload multipart) desde cola de observaciones (`PATCH /admin/observations/:id` ya
+  acepta `attachments[]`, falta UI para subir archivos).
 - **Cron de capas** — pull NOAA/NASA/ESA cada N horas vía cercu-backend
 - **Migrar storage de capas a S3/Spaces** — actualmente disco local del VPS
   (`uploads/layers/`); cambiar sólo `resolveLayerDownload()` en `arrecifes.service.ts`
-- **Drag-and-drop / draw-on-map para `geometry`** — sustituir el textarea de GeoJSON
-  pegado en `/admin/conflicts` por un editor leaflet-draw inline
+- **Drag-and-drop / draw-on-map para `geometry`** — sustituir los textarea GeoJSON
+  pegado en `/admin/conflicts` y `/admin/coastal-intrusions` por un editor leaflet-draw
+  inline
 - **WebSocket** — push de alertas críticas de blanqueamiento al mapa vivo
-- **Time slider** — comparativa multitemporal de cobertura coralina y SST
+- **Time slider** — comparativa multitemporal de cobertura coralina y SST (los
+  snapshots ya están persistidos vía `/admin/snapshots`, falta el slider en el UI)
 - **API pública** — endpoints `/public/v1/...` con rate limit y CC BY 4.0
 - **Aplicación móvil** — companion para captura en campo con geofence (Sian Ka'an, etc.)
+- **CMS para hermanos** — humedales y techos-verdes ya tienen el editor admin
+  (`/admin/contenido`) pero sus pages públicas aún no leen del store; portar el
+  patrón `useCmsContent` a `observatorio-humedales/pages/*.vue` cierra ese gap
 
 ## License
 

@@ -2,12 +2,9 @@
   <div>
     <CommonHeroSection compact>
       <div class="max-w-3xl">
-        <span class="badge-coral mb-3 bg-white/15 text-white">Contribuir</span>
-        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">Aporta a la plataforma</h1>
-        <p class="mt-3 text-base text-white/80 md:text-lg">
-          Comparte fotos submarinas, vuelos de dron, transectos, muestras o reportes de
-          problemáticas costeras. Un equipo revisa cada aporte; al validarse construyes tu reputación.
-        </p>
+        <span class="badge-coral mb-3 bg-white/15 text-white">{{ hero?.eyebrow }}</span>
+        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">{{ hero?.title }}</h1>
+        <p class="mt-3 text-base text-white/80 md:text-lg">{{ hero?.subtitle }}</p>
       </div>
     </CommonHeroSection>
 
@@ -93,8 +90,7 @@
             <div class="rounded-xl border border-eco/20 bg-eco/5 p-4 text-sm">
               <p class="flex items-start gap-2 text-ink-light">
                 <Icon name="lucide:badge-check" size="16" class="mt-0.5 shrink-0 text-eco-dark" />
-                Tu aporte entrará en <strong>cola de revisión</strong>. Un revisor del equipo verifica metadatos,
-                ubicación y calidad. Cuando se valida, tu reputación sube y el aporte aparece público con tu crédito.
+                {{ notice?.body }}
               </p>
             </div>
 
@@ -117,28 +113,9 @@
 
         <!-- Sidebar — guidance -->
         <aside class="space-y-4">
-          <div class="card p-5">
-            <h3 class="text-sm font-bold text-ink">¿Por qué validamos?</h3>
-            <p class="mt-2 text-xs leading-relaxed text-slate-custom">
-              Los datos que afectan políticas públicas y comunidades costeras requieren rigor.
-              La validación protege a la red y a quienes consultan los datos.
-            </p>
-          </div>
-          <div class="card p-5">
-            <h3 class="text-sm font-bold text-ink">Buenas prácticas</h3>
-            <ul class="mt-2 space-y-1.5 text-xs text-slate-custom">
-              <li class="flex gap-2"><Icon name="lucide:dot" size="14" class="shrink-0 text-coral" />Incluye metadata de cámara/dron (EXIF).</li>
-              <li class="flex gap-2"><Icon name="lucide:dot" size="14" class="shrink-0 text-coral" />Documenta la metodología (transecto, profundidad).</li>
-              <li class="flex gap-2"><Icon name="lucide:dot" size="14" class="shrink-0 text-coral" />Evita imágenes con localización precisa de fauna sensible.</li>
-              <li class="flex gap-2"><Icon name="lucide:dot" size="14" class="shrink-0 text-coral" />Cita la fuente si es de un satélite (NASA, ESA, etc.).</li>
-            </ul>
-          </div>
-          <div class="card p-5">
-            <h3 class="text-sm font-bold text-ink">Privacidad</h3>
-            <p class="mt-2 text-xs leading-relaxed text-slate-custom">
-              Para reportes de conflictos puedes solicitar anonimato. Tu aporte se publica
-              con la indicación "Anónimo verificado".
-            </p>
+          <div v-for="(card, idx) in sidebarCards" :key="idx" class="card p-5">
+            <h3 class="text-sm font-bold text-ink">{{ card.title }}</h3>
+            <p class="mt-2 whitespace-pre-line text-xs leading-relaxed text-slate-custom">{{ card.body }}</p>
           </div>
         </aside>
       </div>
@@ -154,6 +131,11 @@ import type { ObservationType } from '~/types'
 
 const reefsStore = useReefsStore()
 const obsStore = useObservationsStore()
+
+const cms = useCmsContent('contribute')
+const hero = cms.one<{ eyebrow: string; title: string; subtitle: string }>('hero')
+const sidebarCards = cms.list<{ title: string; body: string }>('sidebar')
+const notice = cms.one<{ body: string }>('notice')
 
 const form = reactive({
   type: '' as ObservationType | '',

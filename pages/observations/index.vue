@@ -2,12 +2,9 @@
   <div>
     <CommonHeroSection compact>
       <div class="max-w-3xl">
-        <span class="badge-coral mb-3 bg-white/15 text-white">Aportes de la red</span>
-        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">Observaciones recientes</h1>
-        <p class="mt-3 text-base text-white/80 md:text-lg">
-          Fotografías submarinas, vuelos de dron, transectos, muestreos y reportes ciudadanos.
-          Cada aporte se etiqueta con su estado de validación y crédito al autor.
-        </p>
+        <span class="badge-coral mb-3 bg-white/15 text-white">{{ hero?.eyebrow }}</span>
+        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">{{ hero?.title }}</h1>
+        <p class="mt-3 text-base text-white/80 md:text-lg">{{ hero?.subtitle }}</p>
       </div>
     </CommonHeroSection>
 
@@ -85,6 +82,8 @@
 
 <script setup lang="ts">
 import { useObservationsStore } from '~/stores/observations'
+const cms = useCmsContent('observations')
+const hero = cms.one<{ eyebrow: string; title: string; subtitle: string }>('hero')
 import { useContributorsStore } from '~/stores/contributors'
 import { useReefsStore } from '~/stores/reefs'
 

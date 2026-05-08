@@ -257,6 +257,12 @@ export interface Tier {
   sortOrder: number
   visible?: boolean
   archived?: boolean
+  // Reframe del tier system: cada escala = un MODO distinto de aportar
+  // (no un nivel a alcanzar). Visible en /contributors.
+  modeTitle?: string | null             // título visible del modo
+  audience?: string | null              // quién aporta así
+  contributions?: string[] | null       // lista de aportes típicos (3-5)
+  bridge?: string | null                // cómo conecta con los otros modos
 }
 
 export type ContributorRole =
@@ -423,4 +429,63 @@ export interface ReefNewsProspect {
   urlHash: string
   reviewedBy?: string | null
   scrapedAt?: string
+}
+
+// ── Coastal Intrusion (detector ZOFEMAT) ──
+export type CoastalIntrusionStatus = 'candidate' | 'verified' | 'dismissed' | 'escalated'
+
+export interface CoastalIntrusion {
+  id: number
+  reefId: number | null
+  osmId: string | null
+  osmTags?: Record<string, string> | null
+  geometry: GeoJsonGeometry
+  centroidLat: number
+  centroidLng: number
+  areaM2?: number | null
+  zofematOverlapPct?: number | null
+  status: CoastalIntrusionStatus
+  source: string
+  detectedAt: string
+  reviewedBy?: string | null
+  reviewedAt?: string | null
+  reviewerNotes?: string | null
+  escalatedConflictId?: number | null
+  // join opcional desde el service
+  reef?: { id: number; name: string; state: string; ocean: string } | null
+  // ── Fase 2: novedad temporal via NDBI Sentinel-2 ──
+  ndbiBaseline?: number | null
+  ndbiCurrent?: number | null
+  ndbiDelta?: number | null
+  noveltyScore?: number | null            // 0-100 (mayor = más probable construcción nueva)
+  noveltyAnalyzedAt?: string | null
+  noveltyEpochs?: { baseline: string; current: string } | null
+}
+
+export interface CoastalIntrusionNoveltyBatch {
+  processed: number
+  ok: number
+  failed: number
+  results: Array<{ id: number; ok: boolean; score?: number; error?: string }>
+}
+
+export interface CoastalIntrusionRunResult {
+  startedAt: string
+  finishedAt: string
+  reefsProcessed: number
+  buildingsScanned: number
+  candidates: number
+  inserted: number
+  updated: number
+  skipped: number
+  perReef: Array<{
+    reefId: number
+    reefName: string
+    buildingsScanned: number
+    candidates: number
+    inserted: number
+    updated: number
+    skipped: number
+    reason?: string
+  }>
 }

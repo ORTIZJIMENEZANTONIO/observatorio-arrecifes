@@ -3,21 +3,27 @@ const auth = useAuthStore()
 if (import.meta.client) auth.loadFromStorage()
 const route = useRoute()
 
-const allNavItems = [
-  { label: 'Dashboard', to: '/admin', icon: 'lucide:layout-dashboard', exact: true },
-  { label: 'Monitoreo', to: '/admin/analytics', icon: 'lucide:line-chart' },
-  { label: 'Arrecifes', to: '/admin/reefs', icon: 'lucide:waves', perm: 'manage_reefs' as const },
-  { label: 'Observaciones', to: '/admin/observations', icon: 'lucide:camera', perm: 'review_submissions' as const },
-  { label: 'Atlas', to: '/admin/conflicts', icon: 'lucide:alert-triangle', perm: 'manage_conflicts' as const },
-  { label: 'Capas', to: '/admin/layers', icon: 'lucide:layers', perm: 'manage_layers' as const },
-  { label: 'Noticias', to: '/admin/news', icon: 'lucide:newspaper', perm: 'manage_cms' as const },
-  { label: 'Comunidad', to: '/admin/contributors', icon: 'lucide:users', perm: 'manage_contributors' as const },
-  { label: 'Escalas', to: '/admin/tiers', icon: 'lucide:medal', perm: 'manage_contributors' as const },
-  { label: 'Usuarios', to: '/admin/usuarios', icon: 'lucide:user-cog', perm: 'manage_users' as const },
-]
+const { t } = useI18n()
+
+// Items reactivos al locale (las labels cambian al alternar idioma).
+const allNavItems = computed(() => [
+  { label: t('admin.dashboard'), to: '/admin', icon: 'lucide:layout-dashboard', exact: true },
+  { label: t('admin.monitoring'), to: '/admin/analytics', icon: 'lucide:line-chart' },
+  { label: t('admin.reefs'), to: '/admin/reefs', icon: 'lucide:waves', perm: 'manage_reefs' as const },
+  { label: t('admin.observations'), to: '/admin/observations', icon: 'lucide:camera', perm: 'review_submissions' as const },
+  { label: t('admin.atlas'), to: '/admin/conflicts', icon: 'lucide:alert-triangle', perm: 'manage_conflicts' as const },
+  { label: t('admin.coastalDetector'), to: '/admin/coastal-intrusions', icon: 'lucide:radar', perm: 'manage_conflicts' as const },
+  { label: t('admin.layers'), to: '/admin/layers', icon: 'lucide:layers', perm: 'manage_layers' as const },
+  { label: t('admin.alerts'), to: '/admin/alerts', icon: 'lucide:flame', perm: 'manage_reefs' as const },
+  { label: t('admin.news'), to: '/admin/news', icon: 'lucide:newspaper', perm: 'manage_cms' as const },
+  { label: t('admin.content'), to: '/admin/contenido', icon: 'lucide:file-text', perm: 'manage_cms' as const },
+  { label: t('admin.community'), to: '/admin/contributors', icon: 'lucide:users', perm: 'manage_contributors' as const },
+  { label: t('admin.scales'), to: '/admin/tiers', icon: 'lucide:medal', perm: 'manage_contributors' as const },
+  { label: t('admin.users'), to: '/admin/usuarios', icon: 'lucide:user-cog', perm: 'manage_users' as const },
+])
 
 const navItems = computed(() =>
-  allNavItems.filter((item) => !item.perm || auth.hasPermission(item.perm)),
+  allNavItems.value.filter((item) => !item.perm || auth.hasPermission(item.perm)),
 )
 
 const isActive = (item: { to: string; exact?: boolean }) => {
@@ -50,8 +56,8 @@ if (import.meta.client) {
           <Icon name="lucide:waves" size="20" />
         </div>
         <div class="min-w-0">
-          <span class="block text-sm font-semibold text-ink">Admin</span>
-          <span class="block text-[10px] font-medium uppercase tracking-wider text-primary">Arrecifes · México</span>
+          <span class="block text-sm font-semibold text-ink">{{ $t('admin.panel') }}</span>
+          <span class="block text-[10px] font-medium uppercase tracking-wider text-primary">{{ $t('site.title') }}</span>
         </div>
       </div>
 
@@ -97,14 +103,16 @@ if (import.meta.client) {
           class="mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
         >
           <Icon name="lucide:external-link" size="14" />
-          Ver sitio público
+          {{ $t('admin.viewPublic') }}
         </NuxtLink>
+        <CommonColorModeToggle variant="menu" class="mb-1" />
+        <CommonLocaleSwitcher variant="menu" class="mb-1" />
         <button
           class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
           @click="auth.logout()"
         >
           <Icon name="lucide:log-out" size="14" />
-          Cerrar sesión
+          {{ $t('admin.logout') }}
         </button>
       </div>
     </aside>
@@ -122,7 +130,7 @@ if (import.meta.client) {
         >
           <Icon name="lucide:menu" size="20" />
         </button>
-        <h1 class="min-w-0 truncate text-sm font-semibold text-ink sm:text-lg">Observatorio de Arrecifes — Admin</h1>
+        <h1 class="min-w-0 truncate text-sm font-semibold text-ink sm:text-lg">{{ $t('site.title') }} — {{ $t('admin.panel') }}</h1>
       </header>
       <main class="flex-1 overflow-x-hidden p-4 lg:p-6">
         <slot />

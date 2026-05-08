@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { GLOSSARY } from '~/data/admin-glossary'
 import type { SocioEnvironmentalConflict } from '~/types'
 
 definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })
@@ -64,6 +65,9 @@ const filtered = computed(() => {
     return true
   })
 })
+
+const { sorted, sortKey, sortDir, toggleSort } = useSortableList(filtered, { defaultKey: 'startedAt', defaultDir: 'desc' })
+const { paginated: paginatedConflicts, currentPage, totalPages, perPage } = usePaginatedList(sorted, { perPage: 15 })
 
 const toggle = async (c: SocioEnvironmentalConflict, key: 'visible' | 'archived') => {
   const next = !((c as any)[key] ?? (key === 'visible'))
@@ -323,18 +327,18 @@ onMounted(load)
       <table class="table-base">
         <thead>
           <tr>
-            <th class="text-left">Conflicto</th>
-            <th class="text-left">Estado</th>
-            <th class="text-left">Intensidad</th>
-            <th class="text-left">Status</th>
+            <AdminSortableTh sort-key="title" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('title')">Conflicto</AdminSortableTh>
+            <AdminSortableTh sort-key="state" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('state')">Estado</AdminSortableTh>
+            <AdminSortableTh sort-key="intensity" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('intensity')">Intensidad</AdminSortableTh>
+            <AdminSortableTh sort-key="status" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('status')">Status</AdminSortableTh>
             <th class="text-right">Arrecifes</th>
-            <th class="text-center">Visible</th>
-            <th class="text-center">Archivado</th>
+            <AdminSortableTh sort-key="visible" :current-key="sortKey" :current-dir="sortDir" align="center" @sort="toggleSort('visible')">Visible</AdminSortableTh>
+            <AdminSortableTh sort-key="archived" :current-key="sortKey" :current-dir="sortDir" align="center" @sort="toggleSort('archived')">Archivado</AdminSortableTh>
             <th class="text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in filtered" :key="c.id" class="border-t border-gray-100 hover:bg-gray-50/50">
+          <tr v-for="c in paginatedConflicts" :key="c.id" class="border-t border-gray-100 hover:bg-gray-50/50">
             <td class="py-3">
               <p class="font-medium text-ink line-clamp-1">{{ c.title }}</p>
               <p class="text-xs text-ink-muted line-clamp-1">{{ c.summary }}</p>
@@ -367,6 +371,14 @@ onMounted(load)
         </tbody>
       </table>
     </div>
+
+    <CommonPaginationControls
+      v-if="filtered.length > 0"
+      v-model:current-page="currentPage"
+      :total-pages="totalPages"
+      :total-items="filtered.length"
+      :per-page="perPage"
+    />
 
     <Transition name="fade">
       <div v-if="editingId !== null" class="fixed inset-0 z-[200] flex items-end justify-center overflow-y-auto bg-black/40 sm:items-center" @click.self="closeEditor">
@@ -443,7 +455,11 @@ onMounted(load)
 
             <!-- ── Geometría espacial ── -->
             <section class="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
-              <h4 class="mb-3 text-xs font-bold uppercase tracking-wider text-primary">Ubicación geográfica</h4>
+              <h4 class="mb-3 text-xs font-bold uppercase tracking-wider text-primary">
+                <AdminInfoTooltip :text="GLOSSARY.geometry" variant="inline">
+                  Ubicación geográfica
+                </AdminInfoTooltip>
+              </h4>
               <div class="form-group">
                 <label class="form-label">Modo</label>
                 <div class="flex flex-wrap gap-3">

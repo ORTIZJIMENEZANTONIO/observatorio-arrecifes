@@ -2,24 +2,25 @@
   <div>
     <CommonHeroSection compact>
       <div class="max-w-3xl">
-        <span class="badge-coral mb-3 bg-white/15 text-white">Capas y datos</span>
-        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">Datos abiertos. Atribución obligatoria.</h1>
-        <p class="mt-3 text-base text-white/80 md:text-lg">
-          Catálogo de capas satelitales y geoespaciales. Cada capa conserva su licencia y cita
-          original. Descarga libre con crédito a la fuente.
-        </p>
+        <span class="badge-coral mb-3 bg-white/15 text-white">{{ hero?.eyebrow }}</span>
+        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">{{ hero?.title }}</h1>
+        <p class="mt-3 text-base text-white/80 md:text-lg">{{ hero?.subtitle }}</p>
       </div>
     </CommonHeroSection>
 
     <section class="section-padding-sm">
       <div class="container-wide">
-        <!-- Filters -->
-        <div class="card mb-6 p-4 md:p-5">
-          <div class="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-            <div class="input-icon-wrapper">
-              <Icon name="lucide:search" size="16" class="input-icon" />
-              <input v-model="store.search" type="search" class="input" placeholder="Buscar capa, proveedor o tema…" />
-            </div>
+        <CommonFilterPanel
+          v-model:search-query="store.search"
+          search-placeholder="Buscar capa, proveedor o tema…"
+          :active-count="store.activeFilterCount"
+          :total="store.layers.length"
+          :filtered="store.filtered.length"
+          class="mb-6"
+          @clear="store.resetFilters()"
+        >
+          <div class="form-group !mb-0">
+            <label class="form-label">Categoría</label>
             <select v-model="store.filterCategory" class="select">
               <option value="all">Toda categoría</option>
               <option value="thermal_stress">Estrés térmico</option>
@@ -29,9 +30,13 @@
               <option value="bathymetry">Batimetría</option>
               <option value="land_use">Uso de suelo</option>
               <option value="fishing_pressure">Presión pesquera</option>
+              <option value="community_observations">Aportes comunidad</option>
             </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Proveedor</label>
             <select v-model="store.filterProvider" class="select">
-              <option value="all">Todos los proveedores</option>
+              <option value="all">Todos</option>
               <option value="nasa">NASA</option>
               <option value="noaa">NOAA</option>
               <option value="esa_copernicus">ESA Copernicus</option>
@@ -43,7 +48,36 @@
               <option value="global_fishing_watch">Global Fishing Watch</option>
             </select>
           </div>
-        </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Formato</label>
+            <select v-model="store.filterFormat" class="select">
+              <option value="all">Cualquiera</option>
+              <option v-for="f in store.formats" :key="f" :value="f">{{ f.toUpperCase() }}</option>
+            </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Cobertura</label>
+            <select v-model="store.filterCoverage" class="select">
+              <option value="all">Cualquiera</option>
+              <option value="global">Global</option>
+              <option value="regional">Regional</option>
+              <option value="national">Nacional</option>
+            </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Licencia</label>
+            <select v-model="store.filterLicense" class="select">
+              <option value="all">Cualquiera</option>
+              <option v-for="l in store.licenses" :key="l" :value="l">{{ l }}</option>
+            </select>
+          </div>
+          <div class="form-group !mb-0 flex items-end">
+            <label class="checkbox-label">
+              <input v-model="store.filterLiveOnly" type="checkbox" class="checkbox" />
+              Sólo capas Live (con WMS / tile renderizable)
+            </label>
+          </div>
+        </CommonFilterPanel>
 
         <!-- Layer cards -->
         <div class="grid gap-5 md:grid-cols-2">
@@ -109,4 +143,6 @@
 <script setup lang="ts">
 import { useLayersStore } from '~/stores/layers'
 const store = useLayersStore()
+const cms = useCmsContent('data-sources')
+const hero = cms.one<{ eyebrow: string; title: string; subtitle: string }>('hero')
 </script>

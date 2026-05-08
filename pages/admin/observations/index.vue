@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Observation, ObservationStatus } from '~/types'
+import { GLOSSARY } from '~/data/admin-glossary'
 
 definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })
 
@@ -81,6 +82,9 @@ const resetFilters = () => {
   filterContributorId.value = 'all'
 }
 
+const { sorted, sortKey, sortDir, toggleSort } = useSortableList(filtered, { defaultKey: 'submittedAt', defaultDir: 'desc' })
+const { paginated: paginatedObs, currentPage, totalPages, perPage } = usePaginatedList(sorted, { perPage: 15 })
+
 // ── Review modal ──
 const reviewing = ref<Observation | null>(null)
 const reviewForm = ref({ status: 'validated' as ObservationStatus, qualityScore: 80, reviewerNotes: '' })
@@ -104,6 +108,79 @@ const submitReview = async () => {
     await load()
   } catch (e: any) {
     error.value = e?.data?.error?.message || 'No se pudo procesar la revisión'
+  }
+}
+
+// ── Edit modal ── (corrige typos/coords/fecha sin tocar el estado de revisión)
+type EditForm = {
+  title: string
+  description: string
+  lat: number
+  lng: number
+  capturedAt: string
+  reefId: number | null
+  type: string
+  tagsCsv: string
+}
+
+const editing = ref<Observation | null>(null)
+const editForm = ref<EditForm>({
+  title: '',
+  description: '',
+  lat: 0,
+  lng: 0,
+  capturedAt: '',
+  reefId: null,
+  type: 'underwater_photo',
+  tagsCsv: '',
+})
+const savingEdit = ref(false)
+
+const toDateInput = (d: string | Date | null | undefined): string => {
+  if (!d) return ''
+  const dt = typeof d === 'string' ? new Date(d) : d
+  if (Number.isNaN(dt.getTime())) return ''
+  return dt.toISOString().slice(0, 10)
+}
+
+const openEdit = (obs: Observation) => {
+  editing.value = obs
+  editForm.value = {
+    title: obs.title ?? '',
+    description: obs.description ?? '',
+    lat: Number(obs.lat) || 0,
+    lng: Number(obs.lng) || 0,
+    capturedAt: toDateInput(obs.capturedAt),
+    reefId: obs.reefId ?? null,
+    type: obs.type,
+    tagsCsv: (obs.tags || []).join(', '),
+  }
+}
+
+const submitEdit = async () => {
+  if (!editing.value) return
+  savingEdit.value = true
+  try {
+    const payload = {
+      title: editForm.value.title.trim(),
+      description: editForm.value.description.trim(),
+      lat: Number(editForm.value.lat),
+      lng: Number(editForm.value.lng),
+      capturedAt: editForm.value.capturedAt || null,
+      reefId: editForm.value.reefId === null || (editForm.value.reefId as any) === '' ? null : Number(editForm.value.reefId),
+      type: editForm.value.type,
+      tags: editForm.value.tagsCsv
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    }
+    await apiFetch(`/admin/observations/${editing.value.id}`, { method: 'PATCH', body: payload })
+    editing.value = null
+    await load()
+  } catch (e: any) {
+    error.value = e?.data?.error?.message || 'No se pudo actualizar el aporte'
+  } finally {
+    savingEdit.value = false
   }
 }
 
@@ -200,18 +277,22 @@ onMounted(load)
       <table class="table-base">
         <thead>
           <tr>
-            <th class="text-left">Aporte</th>
-            <th class="text-left">Tipo</th>
-            <th class="text-left">Estado</th>
-            <th class="text-right">Calidad</th>
-            <th class="text-right">Reef</th>
-            <th class="text-right">Colab.</th>
-            <th class="text-right">Recibido</th>
+            <AdminSortableTh sort-key="title" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('title')">
+              <AdminInfoTooltip :text="GLOSSARY.observation" variant="inline">Aporte</AdminInfoTooltip>
+            </AdminSortableTh>
+            <AdminSortableTh sort-key="type" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('type')">Tipo</AdminSortableTh>
+            <AdminSortableTh sort-key="status" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('status')">Estado</AdminSortableTh>
+            <AdminSortableTh sort-key="qualityScore" :current-key="sortKey" :current-dir="sortDir" align="right" @sort="toggleSort('qualityScore')">
+              <AdminInfoTooltip :text="GLOSSARY.qualityScore" variant="inline">Calidad</AdminInfoTooltip>
+            </AdminSortableTh>
+            <AdminSortableTh sort-key="reefId" :current-key="sortKey" :current-dir="sortDir" align="right" @sort="toggleSort('reefId')">Reef</AdminSortableTh>
+            <AdminSortableTh sort-key="contributorId" :current-key="sortKey" :current-dir="sortDir" align="right" @sort="toggleSort('contributorId')">Colab.</AdminSortableTh>
+            <AdminSortableTh sort-key="submittedAt" :current-key="sortKey" :current-dir="sortDir" align="right" @sort="toggleSort('submittedAt')">Recibido</AdminSortableTh>
             <th class="text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="o in filtered" :key="o.id" class="border-t border-gray-100 hover:bg-gray-50/50">
+          <tr v-for="o in paginatedObs" :key="o.id" class="border-t border-gray-100 hover:bg-gray-50/50">
             <td class="py-3">
               <p class="font-medium text-ink line-clamp-1">{{ o.title }}</p>
               <p class="text-xs text-ink-muted line-clamp-1">{{ o.description }}</p>
@@ -227,6 +308,9 @@ onMounted(load)
                 <button class="rounded-md p-1.5 text-ink-muted transition-colors hover:bg-primary-50 hover:text-primary" title="Revisar" @click="openReview(o)">
                   <Icon name="lucide:check-circle-2" size="16" />
                 </button>
+                <button class="rounded-md p-1.5 text-ink-muted transition-colors hover:bg-amber-50 hover:text-amber-600" title="Editar metadatos" @click="openEdit(o)">
+                  <Icon name="lucide:pencil" size="16" />
+                </button>
                 <button class="rounded-md p-1.5 text-ink-muted transition-colors hover:bg-red-50 hover:text-red-600" title="Eliminar" @click="remove(o)">
                   <Icon name="lucide:trash-2" size="16" />
                 </button>
@@ -236,6 +320,14 @@ onMounted(load)
         </tbody>
       </table>
     </div>
+
+    <CommonPaginationControls
+      v-if="filtered.length > 0"
+      v-model:current-page="currentPage"
+      :total-pages="totalPages"
+      :total-items="filtered.length"
+      :per-page="perPage"
+    />
 
     <Transition name="fade">
       <div v-if="reviewing" class="fixed inset-0 z-[200] flex items-end justify-center bg-black/40 sm:items-center" @click.self="reviewing = null">
@@ -257,7 +349,11 @@ onMounted(load)
               </select>
             </div>
             <div v-if="reviewForm.status === 'validated'" class="form-group">
-              <label class="form-label">Calidad técnica (0-100)</label>
+              <label class="form-label">
+                <AdminInfoTooltip :text="GLOSSARY.qualityScore" variant="inline">
+                  Calidad técnica (0-100)
+                </AdminInfoTooltip>
+              </label>
               <input v-model.number="reviewForm.qualityScore" type="number" min="0" max="100" class="input w-full" />
             </div>
             <div class="form-group">
@@ -268,6 +364,78 @@ onMounted(load)
           <div class="mt-5 flex justify-end gap-2">
             <button class="btn-ghost" @click="reviewing = null">Cancelar</button>
             <button class="btn-primary" @click="submitReview">Confirmar</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Edit modal: corrige metadatos del aporte sin alterar el estado de revisión. -->
+    <Transition name="fade">
+      <div
+        v-if="editing"
+        class="fixed inset-0 z-[200] flex items-end justify-center overflow-y-auto bg-black/40 sm:items-center"
+        @click.self="editing = null"
+      >
+        <div class="my-8 w-full max-w-xl rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
+          <header class="mb-4 flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-semibold text-ink">Editar aporte</h3>
+              <p class="text-xs text-ink-muted">Cambia metadatos sin tocar el estado de revisión.</p>
+            </div>
+            <button class="rounded-lg p-2 text-gray-400 hover:bg-gray-100" @click="editing = null">
+              <Icon name="lucide:x" size="18" />
+            </button>
+          </header>
+          <div class="space-y-3">
+            <div class="form-group">
+              <label class="form-label">Título</label>
+              <input v-model="editForm.title" type="text" class="input w-full" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Descripción</label>
+              <textarea v-model="editForm.description" rows="3" class="input w-full" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-group">
+                <label class="form-label">Latitud</label>
+                <input v-model.number="editForm.lat" type="number" step="0.0001" class="input w-full" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Longitud</label>
+                <input v-model.number="editForm.lng" type="number" step="0.0001" class="input w-full" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-group">
+                <label class="form-label">Fecha de captura</label>
+                <input v-model="editForm.capturedAt" type="date" class="input w-full" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Reef ID</label>
+                <input v-model.number="editForm.reefId" type="number" min="1" class="input w-full" placeholder="Sin arrecife" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipo</label>
+              <select v-model="editForm.type" class="select w-full">
+                <option v-for="(label, key) in typeLabels" :key="key" :value="key">{{ label }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Etiquetas (separadas por coma)</label>
+              <input v-model="editForm.tagsCsv" type="text" class="input w-full" placeholder="SCTLD, blanqueamiento…" />
+            </div>
+          </div>
+          <div class="mt-5 flex justify-end gap-2">
+            <button class="btn-ghost" :disabled="savingEdit" @click="editing = null">Cancelar</button>
+            <button class="btn-primary" :disabled="savingEdit" @click="submitEdit">
+              <Icon
+                :name="savingEdit ? 'lucide:loader-2' : 'lucide:save'"
+                size="14"
+                :class="savingEdit ? 'animate-spin-smooth' : ''"
+              />
+              Guardar cambios
+            </button>
           </div>
         </div>
       </div>

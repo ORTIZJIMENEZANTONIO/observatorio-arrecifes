@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { Reef, Contributor, Observation, BleachingAlert } from '~/types'
+import DataMiningBuilder from '~/components/admin/analytics/DataMiningBuilder.vue'
+import { GLOSSARY } from '~/data/admin-glossary'
 
 definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })
 
@@ -48,7 +50,7 @@ const alerts = ref<BleachingAlert[]>([])
 const loading = ref(true)
 const error = ref('')
 const days = ref(30)
-const activeTab = ref<'interacciones' | 'descriptivo' | 'inferencial' | 'modelado'>('interacciones')
+const activeTab = ref<'interacciones' | 'descriptivo' | 'inferencial' | 'modelado' | 'historico'>('interacciones')
 const k = ref(3)
 
 const load = async () => {
@@ -178,9 +180,12 @@ const coralCoverValues = computed(() =>
     .filter((v) => Number.isFinite(v)),
 )
 const coralCoverStats = computed(() => math.describe(coralCoverValues.value))
-const coralCoverHistogram = computed(() => math.histogram(coralCoverValues.value, 8))
+const coralCoverHistogram = computed(() => math.histogram(coralCoverValues.value, histogramBins.value))
 const coralCoverCV = computed(() => math.coefficientOfVariation(coralCoverValues.value))
-const coralCoverCI95 = computed(() => math.bootstrapMeanCI(coralCoverValues.value, 0.05, 1000))
+// Bootstrap CI con nivel configurable. ciLevel = 0.95 → alpha = 0.05.
+const coralCoverCI95 = computed(() =>
+  math.bootstrapMeanCI(coralCoverValues.value, 1 - ciLevel.value, 1000),
+)
 
 // ── Coral Health Index (composite) ──
 // Necesitamos las alertas para extraer DHW por arrecife.
@@ -212,7 +217,7 @@ const meanHealthIndex = computed(() =>
 )
 
 const healthIndexCI95 = computed(() =>
-  math.bootstrapMeanCI(reefHealthIndices.value.map((x) => x.chi), 0.05, 1000),
+  math.bootstrapMeanCI(reefHealthIndices.value.map((x) => x.chi), 1 - ciLevel.value, 1000),
 )
 
 // ── Diversidad bentónica (Shannon H' por arrecife) ──
@@ -342,7 +347,7 @@ const scatterCoralDhw = computed(() => {
 // Anomalías: cobertura coral por z-score
 const coralAnomalies = computed(() => {
   const xs = coralCoverValues.value
-  const flags = math.flagAnomalies(xs, 1.5)
+  const flags = math.flagAnomalies(xs, anomalyZThreshold.value)
   const z = math.zScores(xs)
   const reefsWithCover = reefs.value.filter((r) => Number.isFinite(Number(r.liveCoralCover)))
   return reefsWithCover
@@ -614,7 +619,9 @@ const oceanCoralStats = computed(() => {
       ocean: o,
       ...stats,
       cv: math.coefficientOfVariation(values),
-      ci: values.length >= 2 ? math.bootstrapMeanCI(values, 0.05, 500) : [stats.mean, stats.mean],
+      ci: values.length >= 2
+        ? math.bootstrapMeanCI(values, 1 - ciLevel.value, 500)
+        : [stats.mean, stats.mean],
     }
   })
 })
@@ -696,7 +703,7 @@ const observationsForecast = computed(() => {
   const xs = series.map((_, i) => i)
   const ys = series.map(([, v]) => v)
   const reg = math.linearRegression(xs, ys)
-  const futureMonths = 3
+  const futureMonths = forecastHorizon.value
   const futureLabels: string[] = []
   const futureValues: number[] = []
   const lastDate = series[series.length - 1][0]
@@ -752,7 +759,10 @@ interface ReefMetricSnapshot {
   liveCoralCover: number | null
   dhw: number | null
   sst: number | null
+  sstAnomaly: number | null
+  observationsCount: number
   healthIndex: number | null
+  source: string
 }
 
 const snapshots = ref<ReefMetricSnapshot[]>([])
@@ -870,22 +880,49 @@ const trendInterpretation = (t: OceanTrend): string => {
   return 'tendencia decreciente significativa'
 }
 
-const baseLineOptions = {
+// ─── Helpers de Chart.js: títulos de eje + leyenda + dimensiones reusables ───
+const axisTitle = (text: string) => ({ display: true, text, font: { size: 11 } })
+
+const lineOpts = (xTitle?: string, yTitle?: string) => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: { legend: { position: 'bottom' as const } },
-}
-const baseBarOptions = {
+  scales: {
+    x: xTitle ? { title: axisTitle(xTitle) } : undefined,
+    y: yTitle ? { title: axisTitle(yTitle), beginAtZero: true } : undefined,
+  },
+})
+
+const barOpts = (
+  xTitle?: string,
+  yTitle?: string,
+  indexAxis: 'x' | 'y' = 'y',
+  legend = false,
+) => ({
   responsive: true,
   maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-  indexAxis: 'y' as const,
-}
+  plugins: { legend: { display: legend, position: 'bottom' as const } },
+  indexAxis,
+  scales: {
+    x: xTitle ? { title: axisTitle(xTitle) } : undefined,
+    y: yTitle ? { title: axisTitle(yTitle) } : undefined,
+  },
+})
+
+// Para retrocompatibilidad con código que aún use estas constantes.
+const baseLineOptions = lineOpts()
+const baseBarOptions = barOpts()
 const baseDoughnutOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: { legend: { position: 'right' as const } },
 }
+
+// ─── Controles configurables (Fase actual) ───
+const histogramBins = ref(8)
+const ciLevel = ref<0.90 | 0.95 | 0.99>(0.95)
+const anomalyZThreshold = ref(1.5)
+const forecastHorizon = ref(3)
 const scatterOptions = {
   responsive: true,
   maintainAspectRatio: false,
@@ -898,6 +935,111 @@ const scatterOptions = {
 
 const formatPct = (v: number) => `${v.toFixed(1)}%`
 const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionDigits: 2 })
+
+// ────────── HISTÓRICO — visualización del time-series snapshots ──────────
+// Reusa el `snapshots` ref de TENDENCIAS TEMPORALES (ya cargado al mount con
+// `loadSnapshots` que pide /reefs/metrics?days=400). Aquí sólo añadimos los
+// filtros UI (arrecife + ventana) y el chart por filtro.
+
+const snapReefId = ref<number | ''>('')
+const snapDays = ref<number | null>(180)
+const snapCaptureMsg = ref('')
+
+const reefName = (id: number | null | undefined): string => {
+  if (id == null) return '—'
+  const r = reefsStore.publicReefs.find((x: Reef) => x.id === id)
+  return r?.name || `#${id}`
+}
+
+const snapFormatDate = (d: string | Date | null | undefined): string => {
+  if (!d) return '—'
+  const dt = typeof d === 'string' ? new Date(d) : d
+  return Number.isNaN(dt.getTime())
+    ? '—'
+    : dt.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// Wrapper sobre el `captureSnapshot` ya existente que setea un mensaje de éxito.
+const captureSnapshotWithMsg = async () => {
+  snapCaptureMsg.value = ''
+  await captureSnapshot()
+  if (!snapshotError.value) {
+    snapCaptureMsg.value = `Snapshot capturado (${new Date().toISOString().slice(0, 10)}).`
+    setTimeout(() => { snapCaptureMsg.value = '' }, 4000)
+  }
+}
+
+const removeSnapshot = async (s: ReefMetricSnapshot) => {
+  if (!confirm(`¿Eliminar snapshot de ${snapFormatDate(s.capturedAt)} para ${reefName(s.reefId)}?`)) return
+  try {
+    await apiFetch(`/admin/reefs/snapshots/${s.id}`, { method: 'DELETE' })
+    snapshots.value = snapshots.value.filter((x) => x.id !== s.id)
+  } catch (e: any) {
+    snapshotError.value = e?.data?.error?.message || 'No se pudo eliminar'
+  }
+}
+
+// Filtra `snapshots` por reefId y ventana en memoria — más rápido que re-fetch.
+const snapFilteredItems = computed<ReefMetricSnapshot[]>(() => {
+  let list = snapshots.value
+  if (snapReefId.value) {
+    const id = Number(snapReefId.value)
+    list = list.filter((s) => s.reefId === id)
+  }
+  if (snapDays.value && snapDays.value > 0) {
+    const since = new Date()
+    since.setDate(since.getDate() - snapDays.value)
+    const sinceStr = since.toISOString().slice(0, 10)
+    list = list.filter((s) => String(s.capturedAt).slice(0, 10) >= sinceStr)
+  }
+  return list
+})
+
+const snapChartData = computed(() => {
+  const items = snapFilteredItems.value
+  if (!snapReefId.value) {
+    const byDate = new Map<string, { covers: number[]; chis: number[]; dhws: number[] }>()
+    for (const s of items) {
+      const k = String(s.capturedAt).slice(0, 10)
+      if (!byDate.has(k)) byDate.set(k, { covers: [], chis: [], dhws: [] })
+      const bucket = byDate.get(k)!
+      if (s.liveCoralCover != null) bucket.covers.push(Number(s.liveCoralCover))
+      if (s.healthIndex != null) bucket.chis.push(Number(s.healthIndex))
+      if (s.dhw != null) bucket.dhws.push(Number(s.dhw))
+    }
+    const labels = Array.from(byDate.keys()).sort()
+    const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
+    return {
+      labels,
+      datasets: [
+        { label: 'Cobertura coral viva (%)', data: labels.map((l) => avg(byDate.get(l)!.covers)), borderColor: '#0E7490', backgroundColor: 'rgba(14,116,144,0.15)', tension: 0.35, yAxisID: 'y', spanGaps: true },
+        { label: 'Índice de salud (CHI)', data: labels.map((l) => avg(byDate.get(l)!.chis)), borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.12)', tension: 0.35, yAxisID: 'y', spanGaps: true },
+        { label: 'DHW (semanas)', data: labels.map((l) => avg(byDate.get(l)!.dhws)), borderColor: '#FF7A66', backgroundColor: 'rgba(255,122,102,0.12)', tension: 0.35, yAxisID: 'y2', spanGaps: true },
+      ],
+    }
+  }
+  const sorted = [...items].sort((a, b) => new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime())
+  const labels = sorted.map((s) => String(s.capturedAt).slice(0, 10))
+  return {
+    labels,
+    datasets: [
+      { label: 'Cobertura coral viva (%)', data: sorted.map((s) => (s.liveCoralCover != null ? Number(s.liveCoralCover) : null)), borderColor: '#0E7490', backgroundColor: 'rgba(14,116,144,0.15)', tension: 0.35, yAxisID: 'y', spanGaps: true },
+      { label: 'Índice de salud (CHI)', data: sorted.map((s) => (s.healthIndex != null ? Number(s.healthIndex) : null)), borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.12)', tension: 0.35, yAxisID: 'y', spanGaps: true },
+      { label: 'DHW', data: sorted.map((s) => (s.dhw != null ? Number(s.dhw) : null)), borderColor: '#FF7A66', backgroundColor: 'rgba(255,122,102,0.12)', tension: 0.35, yAxisID: 'y2', spanGaps: true },
+    ],
+  }
+})
+
+const snapChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: 'index' as const, intersect: false },
+  scales: {
+    y: { beginAtZero: true, title: { display: true, text: 'Cobertura / CHI' } },
+    y2: { beginAtZero: true, position: 'right' as const, grid: { drawOnChartArea: false }, title: { display: true, text: 'DHW' } },
+  },
+  plugins: { legend: { position: 'bottom' as const } },
+}
 </script>
 
 <template>
@@ -950,6 +1092,7 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           { key: 'descriptivo', label: 'Descriptivo', icon: 'lucide:bar-chart-3', requiresArrecifes: true },
           { key: 'inferencial', label: 'Inferencial', icon: 'lucide:trending-up', requiresArrecifes: true },
           { key: 'modelado', label: 'Modelado', icon: 'lucide:network', requiresArrecifes: true },
+          { key: 'historico', label: 'Histórico', icon: 'lucide:camera', requiresArrecifes: true },
         ]"
         :key="tab.key"
         class="flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
@@ -1004,9 +1147,17 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           lanzamientos exitosos o caídas de uso.
         </p>
         <div class="h-72">
-          <ChartsLineChart v-if="seriesChart" :data="seriesChart" :options="baseLineOptions" />
+          <ChartsLineChart
+            v-if="seriesChart"
+            :data="seriesChart"
+            :options="lineOpts('Fecha (MM-DD)', 'Conteo')"
+          />
           <p v-else class="text-sm text-ink-muted">Sin datos</p>
         </div>
+        <p class="mt-2 text-[11px] text-ink-muted">
+          Fuente: tracking interno anónimo (<code>observatory_interaction_events</code>).
+          Sin PII, IP hasheada con SHA-256.
+        </p>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
@@ -1019,6 +1170,7 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
             <ChartsDoughnutChart v-if="eventTypeChart" :data="eventTypeChart" :options="baseDoughnutOptions" />
             <p v-else class="text-sm text-ink-muted">Sin datos</p>
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">Fuente: tracking interno anónimo.</p>
         </div>
         <div class="card p-5">
           <h3 class="text-sm font-semibold text-ink">Top rutas (pageviews)</h3>
@@ -1026,9 +1178,14 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
             Las páginas más visitadas. Identifica qué contenido del sitio retiene atención.
           </p>
           <div class="h-64">
-            <ChartsBarChart v-if="topPathsChart && summary?.topPaths.length" :data="topPathsChart" :options="baseBarOptions" />
+            <ChartsBarChart
+              v-if="topPathsChart && summary?.topPaths.length"
+              :data="topPathsChart"
+              :options="barOpts('Pageviews', 'Ruta')"
+            />
             <p v-else class="text-sm text-ink-muted">Aún no hay rutas registradas</p>
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">Fuente: tracking interno (rutas excluyendo /admin/*).</p>
         </div>
       </div>
 
@@ -1039,9 +1196,16 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           para evaluar qué llamados a la acción funcionan.
         </p>
         <div class="h-64">
-          <ChartsBarChart v-if="topTargetsChart && summary?.topTargets.length" :data="topTargetsChart" :options="baseBarOptions" />
+          <ChartsBarChart
+            v-if="topTargetsChart && summary?.topTargets.length"
+            :data="topTargetsChart"
+            :options="barOpts('Clicks', 'Elemento')"
+          />
           <p v-else class="text-sm text-ink-muted">Sin clicks registrados todavía. Marca elementos clave con <code>data-track="..."</code>.</p>
         </div>
+        <p class="mt-2 text-[11px] text-ink-muted">
+          Fuente: tracking interno. Sólo elementos con atributo <code>data-track</code> aparecen aquí.
+        </p>
       </div>
     </section>
 
@@ -1052,6 +1216,31 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
         <p class="mt-1 text-ink-muted">
           Estadística descriptiva: promedios, distribuciones y conteos del inventario de arrecifes y la red de
           colaboradores. Responde a "¿cómo está hoy el sistema?" sin todavía buscar relaciones causales.
+        </p>
+      </div>
+
+      <!-- Parámetros configurables (Descriptivo) -->
+      <div class="card flex flex-wrap items-end gap-4 p-4">
+        <div class="form-group !mb-0 grow">
+          <label class="form-label">Bins del histograma</label>
+          <select v-model.number="histogramBins" class="select !py-1.5 text-xs">
+            <option :value="5">5 (más amplios)</option>
+            <option :value="8">8 (default)</option>
+            <option :value="10">10</option>
+            <option :value="15">15</option>
+            <option :value="20">20 (más finos)</option>
+          </select>
+        </div>
+        <div class="form-group !mb-0 grow">
+          <label class="form-label">Nivel del intervalo de confianza (bootstrap)</label>
+          <select v-model.number="ciLevel" class="select !py-1.5 text-xs">
+            <option :value="0.90">90 %</option>
+            <option :value="0.95">95 % (default)</option>
+            <option :value="0.99">99 %</option>
+          </select>
+        </div>
+        <p class="text-[11px] text-ink-muted">
+          Aplican a las KPIs y al histograma de cobertura coral.
         </p>
       </div>
 
@@ -1126,8 +1315,16 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
             sitios degradados, sanos, o tiene una distribución pareja.
           </p>
           <div class="h-64">
-            <ChartsBarChart :data="coralCoverHistChart" :options="{ ...baseBarOptions, indexAxis: 'x' }" />
+            <ChartsBarChart
+              :data="coralCoverHistChart"
+              :options="barOpts('Cobertura coral viva (%)', 'Frecuencia (# arrecifes)', 'x')"
+            />
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">
+            Fuente: inventario interno del observatorio
+            (<NuxtLink to="/admin/reefs" class="text-primary underline">/admin/reefs</NuxtLink>).
+            Bins configurables arriba.
+          </p>
         </div>
         <div class="card p-5">
           <h3 class="text-sm font-semibold text-ink">Estatus actual</h3>
@@ -1137,6 +1334,11 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           <div class="h-64">
             <ChartsDoughnutChart :data="statusChart" :options="baseDoughnutOptions" />
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">
+            Fuente: inventario interno + alertas
+            <a href="https://coralreefwatch.noaa.gov" target="_blank" rel="noopener" class="text-primary underline">
+              NOAA Coral Reef Watch</a>.
+          </p>
         </div>
         <div class="card p-5">
           <h3 class="text-sm font-semibold text-ink">Litoral</h3>
@@ -1146,6 +1348,10 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           <div class="h-64">
             <ChartsDoughnutChart :data="oceanChart" :options="baseDoughnutOptions" />
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">
+            Fuente: inventario interno
+            (<NuxtLink to="/admin/reefs" class="text-primary underline">/admin/reefs</NuxtLink>).
+          </p>
         </div>
         <div class="card p-5">
           <h3 class="text-sm font-semibold text-ink">Estatus de protección</h3>
@@ -1153,8 +1359,17 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
             Cuántos arrecifes están bajo cada figura legal: ANP federal, UNESCO, Ramsar, sin protección.
           </p>
           <div class="h-64">
-            <ChartsBarChart :data="protectionChart" :options="baseBarOptions" />
+            <ChartsBarChart
+              :data="protectionChart"
+              :options="barOpts('# arrecifes', 'Figura de protección')"
+            />
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">
+            Fuente:
+            <a href="https://www.gob.mx/conanp" target="_blank" rel="noopener" class="text-primary underline">CONANP</a>
+            + <a href="https://whc.unesco.org" target="_blank" rel="noopener" class="text-primary underline">UNESCO</a>
+            + <a href="https://www.ramsar.org" target="_blank" rel="noopener" class="text-primary underline">Ramsar</a>.
+          </p>
         </div>
       </div>
 
@@ -1168,6 +1383,10 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           <div class="h-64">
             <ChartsDoughnutChart :data="tierChart" :options="baseDoughnutOptions" />
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">
+            Fuente: red interna de colaboradores
+            (<NuxtLink to="/admin/contributors" class="text-primary underline">/admin/contributors</NuxtLink>).
+          </p>
         </div>
         <div class="card p-5">
           <h3 class="text-sm font-semibold text-ink">Aportes por estado de revisión</h3>
@@ -1194,6 +1413,30 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           Correlaciones, regresiones lineales y detección de anomalías entre cobertura coral y factores externos
           (temperatura, irradiación, latitud, aislamiento, lluvia, viento). El objetivo no es probar causalidad
           sino identificar pistas que valgan la pena investigar.
+        </p>
+      </div>
+
+      <!-- Parámetros configurables (Inferencial) -->
+      <div class="card flex flex-wrap items-end gap-4 p-4">
+        <div class="form-group !mb-0 grow">
+          <label class="form-label">Umbral z para anomalías</label>
+          <select v-model.number="anomalyZThreshold" class="select !py-1.5 text-xs">
+            <option :value="1.5">|z| &gt; 1.5 (sensible)</option>
+            <option :value="2.0">|z| &gt; 2.0 (default — outliers claros)</option>
+            <option :value="2.5">|z| &gt; 2.5 (estricto)</option>
+            <option :value="3.0">|z| &gt; 3.0 (muy estricto)</option>
+          </select>
+        </div>
+        <div class="form-group !mb-0 grow">
+          <label class="form-label">Nivel del intervalo de confianza</label>
+          <select v-model.number="ciLevel" class="select !py-1.5 text-xs">
+            <option :value="0.90">90 %</option>
+            <option :value="0.95">95 %</option>
+            <option :value="0.99">99 %</option>
+          </select>
+        </div>
+        <p class="text-[11px] text-ink-muted">
+          Cambian el número de anomalías marcadas y los IC de la tabla de litorales en vivo.
         </p>
       </div>
 
@@ -1230,6 +1473,12 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
           <ChartsScatterChart v-if="scatterCoralDhw" :data="scatterCoralDhw" :options="scatterOptions" />
           <p v-else class="text-sm text-ink-muted">Sin alertas de blanqueamiento todavía. Carga datos NOAA CRW para ver la correlación.</p>
         </div>
+        <p class="mt-2 text-[11px] text-ink-muted">
+          Fuente DHW + SST:
+          <a href="https://coralreefwatch.noaa.gov/product/5km/index.php" target="_blank" rel="noopener" class="text-primary underline">
+            NOAA Coral Reef Watch (5 km)
+          </a>; cobertura coral: inventario interno.
+        </p>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
@@ -1457,6 +1706,13 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
             />
             <p v-else class="text-sm text-ink-muted">Sin datos suficientes.</p>
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">
+            Fuente irradiación:
+            <a href="https://power.larc.nasa.gov" target="_blank" rel="noopener" class="text-primary underline">
+              NASA POWER
+            </a>
+            (climatología anual, kWh/m²/día). Si un arrecife aún no tiene caché real, se estima por latitud.
+          </p>
         </div>
 
         <div class="card p-5">
@@ -1477,6 +1733,9 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
             />
             <p v-else class="text-sm text-ink-muted">Sin datos suficientes.</p>
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">
+            Fuente: coordenadas del inventario interno; cobertura del mismo.
+          </p>
         </div>
 
         <div class="card p-5">
@@ -1497,6 +1756,9 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
             />
             <p v-else class="text-sm text-ink-muted">Sin datos suficientes.</p>
           </div>
+          <p class="mt-2 text-[11px] text-ink-muted">
+            Fuente: distancia Haversine entre arrecifes del inventario interno.
+          </p>
         </div>
       </div>
     </section>
@@ -1504,13 +1766,17 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
     <!-- ───────── MODELADO ───────── -->
     <section v-if="activeTab === 'modelado'" class="space-y-5">
       <div class="rounded-2xl border border-primary/15 bg-primary/5 p-4 text-xs text-ink">
-        <p class="font-semibold text-primary">Agrupar y proyectar</p>
+        <p class="font-semibold text-primary">Agrupar, proyectar y explorar</p>
         <p class="mt-1 text-ink-muted">
-          Modelos básicos para encontrar grupos naturales de arrecifes parecidos entre sí y para anticipar la
-          tendencia futura de aportes ciudadanos. No reemplaza modelos físicos del oceanógrafo; es una primera
-          mirada exploratoria.
+          Modelos básicos para encontrar grupos naturales de arrecifes parecidos entre sí, anticipar
+          la tendencia futura de aportes ciudadanos y <strong>construir tu propio análisis</strong>
+          combinando cualquier par de variables. No reemplaza modelos físicos del oceanógrafo; es una
+          primera mirada exploratoria con resultados exportables como CSV.
         </p>
       </div>
+
+      <!-- Constructor interactivo de análisis (minería de datos) -->
+      <DataMiningBuilder :reefs="reefs" :alerts="alerts" />
 
       <!-- Tendencias temporales (Mann-Kendall + Theil-Sen sobre snapshots) -->
       <div class="card p-5">
@@ -1542,7 +1808,11 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
 
         <div v-else>
           <div class="h-72">
-            <ChartsLineChart v-if="trendChart" :data="trendChart" :options="baseLineOptions" />
+            <ChartsLineChart
+              v-if="trendChart"
+              :data="trendChart"
+              :options="lineOpts('Mes (YY-MM)', 'CHI promedio (0–100)')"
+            />
           </div>
 
           <div class="mt-4 grid gap-3 md:grid-cols-3">
@@ -1601,25 +1871,193 @@ const formatNumber = (v: number) => v.toLocaleString('es-MX', { maximumFractionD
       </div>
 
       <div class="card p-5">
-        <h3 class="text-sm font-semibold text-ink">Pronóstico de aportes mensuales</h3>
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h3 class="text-sm font-semibold text-ink">Pronóstico de aportes mensuales</h3>
+          <div class="flex items-center gap-2 text-xs">
+            <label class="text-ink-muted">Horizonte:</label>
+            <select v-model.number="forecastHorizon" class="select !py-1 text-xs">
+              <option :value="3">3 meses</option>
+              <option :value="6">6 meses</option>
+              <option :value="9">9 meses</option>
+              <option :value="12">12 meses</option>
+            </select>
+          </div>
+        </div>
         <p class="mb-3 mt-1 text-xs text-ink-muted">
-          Proyección de aportes ciudadanos para los próximos 3 meses con base en una regresión lineal del histórico.
-          Útil para anticipar carga de revisión y planear capacidad del equipo. La pendiente indica si la
-          participación crece, decrece o se estabiliza.
+          Proyección de aportes ciudadanos para los próximos {{ forecastHorizon }} meses con base en una
+          regresión lineal del histórico. Útil para anticipar carga de revisión y planear capacidad del equipo.
+          La pendiente indica si la participación crece, decrece o se estabiliza.
         </p>
         <p v-if="!observationsForecast" class="text-sm text-ink-muted">
           Se necesitan al menos 3 meses con aportes para proyectar. Actualmente: {{ observationsByMonth.length }}.
         </p>
         <div v-else>
           <div class="h-64">
-            <ChartsLineChart :data="forecastChart!" :options="baseLineOptions" />
+            <ChartsLineChart
+              :data="forecastChart!"
+              :options="lineOpts('Mes (YYYY-MM)', 'Aportes')"
+            />
           </div>
           <p class="mt-3 text-xs text-ink-muted">
             Tendencia: {{ observationsForecast.slope > 0 ? 'creciente' : observationsForecast.slope < 0 ? 'decreciente' : 'estable' }}
             ({{ formatNumber(observationsForecast.slope) }} aportes/mes).
             R² = {{ formatNumber(observationsForecast.r2) }}.
           </p>
+          <p class="mt-1 text-[11px] text-ink-muted">
+            Fuente: aportes validados de la red interna del observatorio
+            (<NuxtLink to="/admin/observations" class="text-primary underline">/admin/observations</NuxtLink>).
+          </p>
         </div>
+      </div>
+    </section>
+
+    <!-- ───────── HISTÓRICO (snapshots por arrecife) ───────── -->
+    <section v-if="activeTab === 'historico'" class="space-y-5">
+      <div class="rounded-2xl border border-primary/15 bg-primary/5 p-4 text-xs text-ink">
+        <p class="font-semibold text-primary">Serie de tiempo del observatorio</p>
+        <p class="mt-1 text-ink-muted">
+          <AdminInfoTooltip :text="GLOSSARY.snapshot" variant="inline">Snapshots</AdminInfoTooltip>
+          diarios de cobertura coralina,
+          <AdminInfoTooltip :text="GLOSSARY.dhw" variant="inline">DHW</AdminInfoTooltip>,
+          <AdminInfoTooltip :text="GLOSSARY.sst" variant="inline">SST</AdminInfoTooltip>
+          e <AdminInfoTooltip :text="GLOSSARY.chi" variant="inline">índice de salud (CHI)</AdminInfoTooltip>
+          por arrecife. Cada captura es idempotente por día — corre una al final de la jornada
+          para tener una traza histórica fiable. Modo "Todos" promedia los 12 arrecifes; modo
+          single-reef muestra la evolución cruda.
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-2">
+          <button class="btn-outline btn-sm" :disabled="snapshotsLoading" @click="loadSnapshots">
+            <Icon name="lucide:refresh-cw" size="14" /> Refrescar
+          </button>
+          <button class="btn-primary btn-sm" :disabled="snapshotting" @click="captureSnapshotWithMsg">
+            <Icon
+              :name="snapshotting ? 'lucide:loader-2' : 'lucide:camera'"
+              size="14"
+              :class="snapshotting ? 'animate-spin-smooth' : ''"
+            />
+            {{ snapshotting ? 'Capturando…' : 'Capturar snapshot ahora' }}
+          </button>
+        </div>
+        <span class="text-xs text-ink-muted">
+          {{ snapFilteredItems.length }} de {{ snapshots.length }} snapshots
+        </span>
+      </div>
+
+      <p v-if="snapCaptureMsg" class="rounded-lg border border-eco/20 bg-eco/5 p-3 text-xs text-eco-dark">
+        <Icon name="lucide:check-circle" size="12" class="mr-1 inline" />
+        {{ snapCaptureMsg }}
+      </p>
+
+      <div class="card p-4">
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div class="form-group !mb-0">
+            <label class="form-label">Arrecife</label>
+            <select v-model="snapReefId" class="select w-full">
+              <option :value="''">Todos (promedio diario)</option>
+              <option v-for="r in reefsStore.publicReefs" :key="r.id" :value="r.id">{{ r.name }}</option>
+            </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Ventana</label>
+            <select v-model="snapDays" class="select w-full">
+              <option :value="30">30 días</option>
+              <option :value="90">90 días</option>
+              <option :value="180">180 días</option>
+              <option :value="365">1 año</option>
+              <option :value="null">Todo el histórico</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="snapshotError" class="rounded-lg bg-red-50 p-4 text-sm text-red-700">{{ snapshotError }}</div>
+
+      <div v-if="!snapFilteredItems.length && !snapshotsLoading" class="card p-8 text-center text-sm text-ink-muted">
+        Aún no hay snapshots en este rango. Captura el primero con "Capturar snapshot ahora" o
+        amplía la ventana.
+      </div>
+
+      <div v-else-if="snapFilteredItems.length" class="card p-4">
+        <div class="h-72 md:h-80">
+          <ChartsLineChart :data="snapChartData" :options="snapChartOptions" />
+        </div>
+        <p class="mt-3 text-[11px] text-ink-muted">
+          Doble eje Y — cobertura/CHI a la izquierda, DHW a la derecha. CHI (0–100) combina
+          cobertura, riqueza específica, presión térmica y protección legal.
+        </p>
+      </div>
+
+      <div v-if="snapFilteredItems.length" class="table-container">
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th class="text-left">Arrecife</th>
+              <th class="text-right">Fecha</th>
+              <th class="text-right">
+                <AdminInfoTooltip :text="GLOSSARY.liveCoralCover" variant="inline">Cobertura</AdminInfoTooltip>
+              </th>
+              <th class="text-right">
+                <AdminInfoTooltip :text="GLOSSARY.chi" variant="inline">CHI</AdminInfoTooltip>
+              </th>
+              <th class="text-right">
+                <AdminInfoTooltip :text="GLOSSARY.dhw" variant="inline">DHW</AdminInfoTooltip>
+              </th>
+              <th class="text-right">
+                <AdminInfoTooltip :text="GLOSSARY.sst" variant="inline">SST</AdminInfoTooltip>
+              </th>
+              <th class="text-right">
+                <AdminInfoTooltip :text="GLOSSARY.sstAnomaly" variant="inline">Anomalía</AdminInfoTooltip>
+              </th>
+              <th class="text-right">Aportes</th>
+              <th class="text-left">Fuente</th>
+              <th class="text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="s in [...snapFilteredItems].reverse().slice(0, 200)"
+              :key="s.id"
+              class="border-t border-gray-100 hover:bg-gray-50/50"
+            >
+              <td class="py-2 font-medium text-ink">{{ reefName(s.reefId) }}</td>
+              <td class="text-right text-xs text-ink-muted">{{ snapFormatDate(s.capturedAt) }}</td>
+              <td class="text-right font-mono text-sm text-ink">
+                {{ s.liveCoralCover != null ? `${Number(s.liveCoralCover).toFixed(1)}%` : '—' }}
+              </td>
+              <td class="text-right font-mono text-sm text-ink">
+                {{ s.healthIndex != null ? Number(s.healthIndex).toFixed(2) : '—' }}
+              </td>
+              <td class="text-right font-mono text-sm" :class="(s.dhw ?? 0) > 4 ? 'text-coral-dark' : 'text-ink'">
+                {{ s.dhw != null ? Number(s.dhw).toFixed(1) : '—' }}
+              </td>
+              <td class="text-right font-mono text-sm text-ink">
+                {{ s.sst != null ? `${Number(s.sst).toFixed(1)}°` : '—' }}
+              </td>
+              <td class="text-right font-mono text-sm text-ink">
+                {{ s.sstAnomaly != null ? `+${Number(s.sstAnomaly).toFixed(1)}°` : '—' }}
+              </td>
+              <td class="text-right font-mono text-sm text-ink">{{ s.observationsCount ?? 0 }}</td>
+              <td class="text-xs text-ink-muted">{{ s.source }}</td>
+              <td>
+                <div class="flex justify-end">
+                  <button
+                    class="rounded-md p-1.5 text-ink-muted transition-colors hover:bg-red-50 hover:text-red-600"
+                    title="Eliminar snapshot"
+                    @click="removeSnapshot(s)"
+                  >
+                    <Icon name="lucide:trash-2" size="14" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="snapFilteredItems.length > 200" class="mt-2 text-center text-xs text-ink-muted">
+          Mostrando los 200 snapshots más recientes (de {{ snapFilteredItems.length }} en este rango).
+        </p>
       </div>
     </section>
   </div>

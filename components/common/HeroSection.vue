@@ -1,5 +1,19 @@
 <script setup lang="ts">
-defineProps<{ compact?: boolean }>()
+// HeroSection acepta dos modos:
+//   1. SLOT (uso flexible — home, contributors): el caller arma su propio
+//      layout dentro del default slot.
+//   2. PROPS shorthand (eyebrow / title / subtitle): renderiza un layout
+//      consistente con badge superior + h1 + p. Útil para páginas como
+//      /noticias, /atlas, /data-sources que sólo necesitan título corto.
+//
+// Si se pasan ambos, los props se renderizan ANTES del slot (los dos
+// pueden coexistir si el caller quiere shorthand + algo extra abajo).
+defineProps<{
+  compact?: boolean
+  eyebrow?: string
+  title?: string
+  subtitle?: string
+}>()
 </script>
 
 <template>
@@ -17,6 +31,26 @@ defineProps<{ compact?: boolean }>()
       <div class="hero-vignette" />
     </div>
     <div class="container-wide relative z-10">
+      <div v-if="eyebrow || title || subtitle" class="max-w-3xl">
+        <span
+          v-if="eyebrow"
+          class="badge-coral mb-3 bg-white/15 text-white"
+        >
+          {{ eyebrow }}
+        </span>
+        <h1
+          v-if="title"
+          class="font-display text-3xl font-extrabold leading-tight text-white md:text-5xl"
+        >
+          {{ title }}
+        </h1>
+        <p
+          v-if="subtitle"
+          class="mt-3 text-base text-white/80 md:text-lg"
+        >
+          {{ subtitle }}
+        </p>
+      </div>
       <slot />
     </div>
   </section>

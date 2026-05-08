@@ -167,6 +167,9 @@ const filtered = computed(() => {
   })
 })
 
+const { sorted, sortKey, sortDir, toggleSort } = useSortableList(filtered, { defaultKey: 'name' })
+const { paginated: paginatedUsers, currentPage, totalPages, perPage } = usePaginatedList(sorted, { perPage: 15 })
+
 const roleBadgeClass = (role: string) => {
   if (role === 'superadmin') return 'badge-coral'
   if (role === 'admin') return 'badge-primary'
@@ -281,18 +284,18 @@ onMounted(load)
       <table class="table-base">
         <thead>
           <tr>
-            <th class="text-left">Nombre</th>
-            <th class="text-left">Correo</th>
-            <th class="text-left">Rol</th>
+            <AdminSortableTh sort-key="name" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('name')">Nombre</AdminSortableTh>
+            <AdminSortableTh sort-key="email" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('email')">Correo</AdminSortableTh>
+            <AdminSortableTh sort-key="role" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('role')">Rol</AdminSortableTh>
             <th class="text-left">Observatorios</th>
             <th class="text-left">Permisos</th>
-            <th class="text-left">Estatus</th>
-            <th class="text-left">Último acceso</th>
+            <AdminSortableTh sort-key="isActive" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('isActive')">Estatus</AdminSortableTh>
+            <AdminSortableTh sort-key="lastLogin" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('lastLogin')">Último acceso</AdminSortableTh>
             <th v-if="auth.isSuperadmin" class="text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="u in filtered" :key="u.id" class="border-t border-gray-100">
+          <tr v-for="u in paginatedUsers" :key="u.id" class="border-t border-gray-100">
             <td class="py-3 font-medium text-ink">{{ u.name }}</td>
             <td class="text-sm text-ink-muted">{{ u.email }}</td>
             <td><span class="badge" :class="roleBadgeClass(u.role)">{{ roleLabel(u.role) }}</span></td>
@@ -319,6 +322,14 @@ onMounted(load)
         </tbody>
       </table>
     </div>
+
+    <CommonPaginationControls
+      v-if="filtered.length > 0"
+      v-model:current-page="currentPage"
+      :total-pages="totalPages"
+      :total-items="filtered.length"
+      :per-page="perPage"
+    />
 
     <Teleport to="body">
       <div

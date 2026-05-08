@@ -6,8 +6,33 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@vueuse/nuxt',
     '@nuxtjs/color-mode',
+    '@nuxtjs/i18n',
     'nuxt-icon',
   ],
+
+  // Internacionalización: es-MX como default, en-US disponible. Sin prefijo
+  // de URL — la preferencia se guarda en cookie + localStorage. La UI tiene
+  // un selector visible (LocaleSwitcher) en header y sidebar admin.
+  //
+  // i18n v10 (compatible con Nuxt 3.21): el campo `iso` (deprecado en v9)
+  // se renombró a `language`. `langDir` ahora se resuelve relativo al
+  // directorio raíz `i18n/`, así que el valor es 'locales' (no
+  // 'i18n/locales/' como en v8).
+  i18n: {
+    strategy: 'no_prefix',
+    locales: [
+      { code: 'es', language: 'es-MX', name: 'Español', file: 'es.json' },
+      { code: 'en', language: 'en-US', name: 'English', file: 'en.json' },
+    ],
+    defaultLocale: 'es',
+    langDir: 'locales/',
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'arrecifes-i18n',
+      redirectOn: 'root',
+      fallbackLocale: 'es',
+    },
+  },
 
   ssr: false,
 

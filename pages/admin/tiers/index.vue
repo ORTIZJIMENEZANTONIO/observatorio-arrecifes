@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { GLOSSARY } from '~/data/admin-glossary'
+
 definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })
 
 interface Tier {
@@ -14,6 +16,11 @@ interface Tier {
   sortOrder: number
   visible: boolean
   archived: boolean
+  // Modo de participación (visible en /contributors)
+  modeTitle: string | null
+  audience: string | null
+  contributions: string[] | null
+  bridge: string | null
 }
 
 const { apiFetch } = useApi()
@@ -54,6 +61,11 @@ type TierForm = {
   sortOrder: number
   visible: boolean
   archived: boolean
+  // Modo de participación
+  modeTitle: string
+  audience: string
+  contributionsText: string  // textarea (una línea por contribución)
+  bridge: string
 }
 
 const blankForm = (): TierForm => ({
@@ -68,6 +80,10 @@ const blankForm = (): TierForm => ({
   sortOrder: items.value.length + 1,
   visible: true,
   archived: false,
+  modeTitle: '',
+  audience: '',
+  contributionsText: '',
+  bridge: '',
 })
 
 const editingId = ref<number | null>(null)
@@ -75,14 +91,40 @@ const form = ref<TierForm>(blankForm())
 const saving = ref(false)
 const formError = ref('')
 
+// Convierte un título legible en slug estable: ASCII fold, lowercase, guiones.
+//   "Curiosidad ciudadana" → "curiosidad-ciudadana"
+//   "Conocimiento del mar" → "conocimiento-del-mar"
+const slugify = (s: string): string =>
+  s
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')     // quita acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')        // todo lo no-alfanumérico → guion
+    .replace(/^-+|-+$/g, '')            // trim guiones a los extremos
+
+// Cuando creamos una escala nueva, el slug se deriva del título del modo
+// (o del label como respaldo) hasta que el usuario lo edite manualmente.
+const slugManuallyEdited = ref(false)
+watch(
+  () => [form.value.modeTitle, form.value.label] as const,
+  ([modeTitle, label]) => {
+    if (editingId.value !== 0 || slugManuallyEdited.value) return
+    const source = modeTitle.trim() || label.trim()
+    form.value.slug = source ? slugify(source) : ''
+  },
+)
+const onSlugInput = () => { slugManuallyEdited.value = true }
+
 const openCreate = () => {
   editingId.value = 0
   form.value = blankForm()
+  slugManuallyEdited.value = false
   formError.value = ''
 }
 
 const openEdit = (t: Tier) => {
   editingId.value = t.id
+  slugManuallyEdited.value = true   // editando: nunca pisar el slug existente
   formError.value = ''
   form.value = {
     slug: t.slug,
@@ -96,6 +138,10 @@ const openEdit = (t: Tier) => {
     sortOrder: t.sortOrder,
     visible: t.visible,
     archived: t.archived,
+    modeTitle: t.modeTitle || '',
+    audience: t.audience || '',
+    contributionsText: (t.contributions || []).join('\n'),
+    bridge: t.bridge || '',
   }
 }
 
@@ -109,6 +155,11 @@ const save = async () => {
   saving.value = true
   formError.value = ''
   const f = form.value
+  // Convierte el textarea de contribuciones (una por línea) en string[].
+  const contributions = f.contributionsText
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
   const payload: any = {
     slug: f.slug.trim().toLowerCase(),
     label: f.label.trim(),
@@ -121,6 +172,10 @@ const save = async () => {
     sortOrder: Number(f.sortOrder) || 0,
     visible: f.visible,
     archived: f.archived,
+    modeTitle: f.modeTitle.trim() || null,
+    audience: f.audience.trim() || null,
+    contributions: contributions.length > 0 ? contributions : null,
+    bridge: f.bridge.trim() || null,
   }
   try {
     if (editingId.value === 0) {
@@ -174,6 +229,9 @@ const colorOptions = [
 ]
 
 onMounted(load)
+
+const itemsAsList = computed(() => items.value)
+const { sorted: sortedTiers, sortKey, sortDir, toggleSort } = useSortableList(itemsAsList, { defaultKey: 'sortOrder' })
 </script>
 
 <template>
@@ -209,17 +267,19 @@ onMounted(load)
       <table class="table-base">
         <thead>
           <tr>
-            <th class="text-left">Orden</th>
-            <th class="text-left">Escala</th>
-            <th class="text-left">Slug</th>
-            <th class="text-left">Rango</th>
-            <th class="text-left">Color</th>
-            <th class="text-center">Visible</th>
+            <AdminSortableTh sort-key="sortOrder" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('sortOrder')">Orden</AdminSortableTh>
+            <AdminSortableTh sort-key="label" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('label')">Escala</AdminSortableTh>
+            <AdminSortableTh sort-key="slug" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('slug')">
+              <AdminInfoTooltip :text="GLOSSARY.slug" variant="inline">Slug</AdminInfoTooltip>
+            </AdminSortableTh>
+            <AdminSortableTh sort-key="minScore" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('minScore')">Rango</AdminSortableTh>
+            <AdminSortableTh sort-key="color" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('color')">Color</AdminSortableTh>
+            <AdminSortableTh sort-key="visible" :current-key="sortKey" :current-dir="sortDir" align="center" @sort="toggleSort('visible')">Visible</AdminSortableTh>
             <th class="text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in items" :key="t.id" class="border-t border-gray-100 hover:bg-gray-50/50">
+          <tr v-for="t in sortedTiers" :key="t.id" class="border-t border-gray-100 hover:bg-gray-50/50">
             <td class="font-mono text-sm text-ink-muted">{{ t.sortOrder }}</td>
             <td>
               <div class="flex items-center gap-2">
@@ -227,8 +287,15 @@ onMounted(load)
                   <Icon v-if="t.icon" :name="t.icon" size="12" class="mr-1 -ml-0.5" />
                   {{ t.label }}
                 </span>
+                <span v-if="t.modeTitle" class="text-xs font-semibold text-primary">
+                  · {{ t.modeTitle }}
+                </span>
               </div>
               <p v-if="t.description" class="mt-1 text-xs text-ink-muted">{{ t.description }}</p>
+              <p v-if="t.contributions && t.contributions.length" class="mt-1 text-[11px] text-ink-muted">
+                <Icon name="lucide:list" size="11" class="mr-1 inline" />
+                {{ t.contributions.length }} aporte(s) típico(s) · {{ t.audience ? 'audiencia OK' : 'sin audiencia' }}
+              </p>
             </td>
             <td>
               <code class="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{{ t.slug }}</code>
@@ -292,19 +359,31 @@ onMounted(load)
           <div class="space-y-4">
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div class="form-group">
-                <label class="form-label">Slug *</label>
+                <label class="form-label">Etiqueta visible *</label>
+                <input v-model="form.label" type="text" class="input w-full" placeholder="Bronce, Plata, Oro…" />
+                <p class="form-hint">Etiqueta corta del rango (palette).</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label">
+                  <AdminInfoTooltip :text="GLOSSARY.slug" variant="inline">Slug *</AdminInfoTooltip>
+                </label>
                 <input
                   v-model="form.slug"
                   type="text"
                   class="input w-full font-mono"
-                  placeholder="bronze, silver, gold…"
+                  placeholder="se autogenera desde el título…"
                   :disabled="editingId !== 0"
+                  @input="onSlugInput"
                 />
-                <p class="form-hint">Sólo a-z, 0-9, guiones. Inmutable tras crear.</p>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Etiqueta visible *</label>
-                <input v-model="form.label" type="text" class="input w-full" placeholder="Bronce, Plata, Oro…" />
+                <p class="form-hint">
+                  <template v-if="editingId === 0">
+                    Se autogenera desde el <strong>título del modo</strong> (o de la etiqueta si está vacío).
+                    Edítalo si quieres una clave distinta. Sólo a-z, 0-9, guiones.
+                  </template>
+                  <template v-else>
+                    Inmutable tras crear — referenciado por <code>Contributor.tier</code>.
+                  </template>
+                </p>
               </div>
             </div>
 
@@ -350,6 +429,69 @@ onMounted(load)
               <div class="form-group">
                 <label class="form-label">Icono (lucide)</label>
                 <input v-model="form.icon" type="text" class="input w-full font-mono" placeholder="lucide:medal" />
+              </div>
+            </div>
+
+            <!-- ── Modo de participación (visible en /contributors) ── -->
+            <div class="rounded-xl border border-primary/15 bg-primary/5 p-4">
+              <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-primary">
+                <AdminInfoTooltip :text="GLOSSARY.tier" variant="inline">
+                  Modo de participación
+                </AdminInfoTooltip>
+              </p>
+              <p class="mb-3 text-[11px] text-ink-muted">
+                Cómo se presenta esta escala en la sección "5 maneras de cuidar el mismo arrecife" de
+                <code>/contributors</code>. No es un nivel a alcanzar — es una manera distinta de aportar.
+                Si dejas estos campos vacíos, se usa el label/description como respaldo.
+              </p>
+
+              <div class="form-group">
+                <label class="form-label">
+                  <AdminInfoTooltip :text="GLOSSARY.modeTitle" variant="inline">
+                    Título del modo
+                  </AdminInfoTooltip>
+                </label>
+                <input
+                  v-model="form.modeTitle"
+                  type="text"
+                  class="input w-full"
+                  placeholder="Curiosidad ciudadana, Conocimiento del mar, Trabajo en agua…"
+                />
+              </div>
+
+              <div class="form-group mt-3">
+                <label class="form-label">
+                  <AdminInfoTooltip :text="GLOSSARY.audience" variant="inline">
+                    Quién aporta así
+                  </AdminInfoTooltip>
+                </label>
+                <textarea
+                  v-model="form.audience"
+                  rows="2"
+                  class="input w-full"
+                  placeholder="Pescadoras, buzos, comunidades costeras. Saber empírico construido sobre años de presencia en el agua."
+                />
+              </div>
+
+              <div class="form-group mt-3">
+                <label class="form-label">Aportes típicos (uno por línea)</label>
+                <textarea
+                  v-model="form.contributionsText"
+                  rows="4"
+                  class="input w-full font-mono text-xs"
+                  placeholder="Patrones locales: mareas, especies, blanqueamiento estacional&#10;Histórico oral de eventos en su zona&#10;Verificación en campo de capas satelitales"
+                />
+                <p class="form-hint">Sugerencia: 3–5 aportes concretos. Una línea = un item.</p>
+              </div>
+
+              <div class="form-group mt-3">
+                <label class="form-label">Conecta con (puente al resto de la red)</label>
+                <textarea
+                  v-model="form.bridge"
+                  rows="2"
+                  class="input w-full"
+                  placeholder="Da contexto territorial a los datos satelitales. Sin este modo, los números flotan."
+                />
               </div>
             </div>
 

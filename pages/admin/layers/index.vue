@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { GLOSSARY } from '~/data/admin-glossary'
 definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })
 
 interface Layer {
@@ -105,6 +106,9 @@ const filtered = computed(() => {
     return true
   })
 })
+
+const { sorted, sortKey, sortDir, toggleSort } = useSortableList(filtered, { defaultKey: 'sortOrder' })
+const { paginated: paginatedLayers, currentPage, totalPages, perPage } = usePaginatedList(sorted, { perPage: 15 })
 
 const resetFilters = () => {
   search.value = ''
@@ -373,7 +377,9 @@ onMounted(load)
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Origen</label>
+          <label class="form-label">
+            <AdminInfoTooltip :text="GLOSSARY.layerKind" variant="inline">Origen</AdminInfoTooltip>
+          </label>
           <select v-model="filterKind" class="select w-full">
             <option value="all">Todos</option>
             <option value="external_url">URL externa</option>
@@ -403,17 +409,19 @@ onMounted(load)
       <table class="table-base">
         <thead>
           <tr>
-            <th class="text-left">Capa</th>
-            <th class="text-left">Proveedor</th>
-            <th class="text-left">Origen</th>
-            <th class="text-left">Formato</th>
+            <AdminSortableTh sort-key="title" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('title')">Capa</AdminSortableTh>
+            <AdminSortableTh sort-key="providerLabel" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('providerLabel')">Proveedor</AdminSortableTh>
+            <AdminSortableTh sort-key="kind" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('kind')">
+              <AdminInfoTooltip :text="GLOSSARY.layerKind" variant="inline">Origen</AdminInfoTooltip>
+            </AdminSortableTh>
+            <AdminSortableTh sort-key="format" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('format')">Formato</AdminSortableTh>
             <th class="text-left">Archivo / WMS</th>
-            <th class="text-center">Activa</th>
+            <AdminSortableTh sort-key="active" :current-key="sortKey" :current-dir="sortDir" align="center" @sort="toggleSort('active')">Activa</AdminSortableTh>
             <th class="text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="l in filtered" :key="l.id" class="border-t border-gray-100 hover:bg-gray-50/50">
+          <tr v-for="l in paginatedLayers" :key="l.id" class="border-t border-gray-100 hover:bg-gray-50/50">
             <td class="py-3">
               <p class="font-medium text-ink">{{ l.title }}</p>
               <p class="text-xs text-ink-muted">
@@ -492,6 +500,14 @@ onMounted(load)
       </table>
     </div>
 
+    <CommonPaginationControls
+      v-if="filtered.length > 0"
+      v-model:current-page="currentPage"
+      :total-pages="totalPages"
+      :total-items="filtered.length"
+      :per-page="perPage"
+    />
+
     <input ref="uploadInput" type="file" class="hidden" accept=".geojson,.json,.kml,.kmz,.zip,.tif,.tiff,.csv" @change="onFileSelected" />
 
     <Transition name="fade">
@@ -520,7 +536,9 @@ onMounted(load)
               <h4 class="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Identidad</h4>
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div class="form-group">
-                  <label class="form-label">Slug *</label>
+                  <label class="form-label">
+                    <AdminInfoTooltip :text="GLOSSARY.slug" variant="inline">Slug *</AdminInfoTooltip>
+                  </label>
                   <input
                     v-model="form.slug"
                     type="text"
@@ -546,7 +564,9 @@ onMounted(load)
               <h4 class="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Origen y clasificación</h4>
               <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div class="form-group">
-                  <label class="form-label">Origen *</label>
+                  <label class="form-label">
+                    <AdminInfoTooltip :text="GLOSSARY.layerKind" variant="inline">Origen *</AdminInfoTooltip>
+                  </label>
                   <select v-model="form.kind" class="select w-full">
                     <option value="external_url">URL externa</option>
                     <option value="uploaded_file">Archivo subido</option>
@@ -636,7 +656,9 @@ onMounted(load)
               <h4 class="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Render en mapa (WMS / tile)</h4>
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div class="form-group">
-                  <label class="form-label">WMS URL</label>
+                  <label class="form-label">
+                    <AdminInfoTooltip :text="GLOSSARY.wms" variant="inline">WMS URL</AdminInfoTooltip>
+                  </label>
                   <input v-model="form.wmsUrl" type="url" class="input w-full" placeholder="https://…/wms" />
                 </div>
                 <div class="form-group">

@@ -22,37 +22,37 @@
               class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-coral-light backdrop-blur-sm ring-1 ring-white/15"
             >
               <span class="live-dot" />
-              Datos en tiempo casi real · NOAA · NASA · ESA
+              {{ hero?.eyebrow }}
             </span>
             <h1
               class="mt-6 font-display text-4xl font-extrabold leading-[1.05] text-white md:text-5xl lg:text-6xl"
             >
-              Observatorio<br />
-              de <span class="text-gradient-hero">Arrecifes Vivos</span><br />
-              de México
+              {{ hero?.titleLine1 }}<br />
+              {{ hero?.titleLine2Prefix }}
+              <span class="text-gradient-hero">{{ hero?.titleLine2Highlight }}</span>
+              <br />
+              {{ hero?.titleLine3 }}
             </h1>
             <p
               class="mt-6 max-w-xl text-base leading-relaxed text-white/80 md:text-lg"
             >
-              Una plataforma viva. Mapas satelitales actualizados a diario,
-              capas abiertas descargables y una red verificada de pescadores,
-              buzos, comunidades costeras y científicos que documentan lo que
-              pasa bajo el agua.
+              {{ hero?.subtitle }}
             </p>
             <div class="mt-9 flex flex-wrap gap-3">
               <NuxtLink
-                to="/livemap"
-                class="btn-lg group inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 font-semibold text-primary shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-xl"
+                :to="hero?.primaryTo ?? '/livemap'"
+                class="hero-cta-primary btn-lg group inline-flex items-center gap-2 rounded-xl px-7 py-3.5 font-semibold shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
               >
                 <Icon name="lucide:globe" size="20" />
-                Abrir mapa vivo
+                {{ hero?.primaryLabel ?? 'Abrir mapa vivo' }}
               </NuxtLink>
               <NuxtLink
-                to="/contribute"
+                v-if="hero?.secondaryLabel"
+                :to="hero?.secondaryTo ?? '/contribute'"
                 class="btn btn-lg border border-white/25 text-white backdrop-blur-sm hover:bg-white/10"
               >
                 <Icon name="lucide:plus" size="18" />
-                Contribuir
+                {{ hero.secondaryLabel }}
               </NuxtLink>
             </div>
 
@@ -198,7 +198,7 @@
                 :value="k.rawValue"
                 :decimals="k.decimals ?? 0"
                 :suffix="kpiSuffix(k)"
-                :delay="idx * 70"
+                :delay="Number(idx) * 70"
               /><span
                 v-if="k.unit"
                 class="ml-1 text-sm font-medium text-ink-muted"
@@ -215,9 +215,9 @@
     <section class="section-padding-sm">
       <div class="container-wide">
         <CommonSectionTitle
-          tag="¿Qué hay aquí?"
-          title="Una plataforma viva, no un reporte estático"
-          subtitle="Inspirada en Allen Coral Atlas (mapas satelitales globales) y EJAtlas (cartografía de conflictos socioambientales). Pensada para México, en español y desde lo costero."
+          :tag="sectionTitle?.eyebrow ?? '¿Qué hay aquí?'"
+          :title="sectionTitle?.title ?? ''"
+          :subtitle="sectionTitle?.subtitle ?? ''"
         />
 
         <div
@@ -225,74 +225,22 @@
           class="stagger-children grid gap-5 md:grid-cols-3"
         >
           <article
+            v-for="feat in features"
+            :key="feat.title"
             class="reveal card flex flex-col items-center p-6 text-center"
           >
-            <span
-              class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary"
-            >
-              <Icon name="lucide:satellite" size="22" />
+            <span :class="featureIconClass(feat.accent)">
+              <Icon :name="feat.icon" size="22" />
             </span>
-            <h3 class="mt-4 text-lg font-bold text-ink">
-              Datos satelitales casi en tiempo real
-            </h3>
-            <p class="mt-2 text-sm leading-relaxed text-slate-custom">
-              NOAA Coral Reef Watch (DHW, alertas de blanqueamiento), NASA
-              MODIS/PACE (SST, clorofila), ESA Sentinel-2 (10 m), USGS Landsat.
-              Reproyectados sobre la línea costera mexicana.
-            </p>
+            <h3 class="mt-4 text-lg font-bold text-ink">{{ feat.title }}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-slate-custom">{{ feat.description }}</p>
             <NuxtLink
-              to="/livemap"
-              class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:gap-2 transition-all"
+              v-if="feat.linkLabel"
+              :to="feat.linkTo || '/'"
+              class="mt-4 inline-flex items-center gap-1 text-sm font-semibold transition-all hover:gap-2"
+              :class="featureLinkClass(feat.accent)"
             >
-              Abrir mapa <Icon name="lucide:arrow-right" size="14" />
-            </NuxtLink>
-          </article>
-
-          <article
-            class="reveal card flex flex-col items-center p-6 text-center"
-          >
-            <span
-              class="flex h-11 w-11 items-center justify-center rounded-xl bg-coral/10 text-coral-dark"
-            >
-              <Icon name="lucide:alert-triangle" size="22" />
-            </span>
-            <h3 class="mt-4 text-lg font-bold text-ink">
-              Atlas de conflictos socioambientales
-            </h3>
-            <p class="mt-2 text-sm leading-relaxed text-slate-custom">
-              Quién impulsa, quién resiste, qué especies se afectan. Casos
-              documentados de cruceros, sargazo, derrames, sobrepesca y
-              desarrollo costero — con evidencia.
-            </p>
-            <NuxtLink
-              to="/atlas"
-              class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-coral-dark hover:gap-2 transition-all"
-            >
-              Ver atlas <Icon name="lucide:arrow-right" size="14" />
-            </NuxtLink>
-          </article>
-
-          <article
-            class="reveal card flex flex-col items-center p-6 text-center"
-          >
-            <span
-              class="flex h-11 w-11 items-center justify-center rounded-xl bg-eco/10 text-eco-dark"
-            >
-              <Icon name="lucide:users" size="22" />
-            </span>
-            <h3 class="mt-4 text-lg font-bold text-ink">
-              Red verificada de colaboradores
-            </h3>
-            <p class="mt-2 text-sm leading-relaxed text-slate-custom">
-              Pescadores, buzos, investigadoras, comunidades costeras. Sistema
-              de reputación tipo marketplace: bronce → coral según aportes
-              validados, calidad y consistencia.
-            </p>
-            <NuxtLink
-              to="/contributors"
-              class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-eco-dark hover:gap-2 transition-all"
-            >
-              Ver red <Icon name="lucide:arrow-right" size="14" />
+              {{ feat.linkLabel }} <Icon name="lucide:arrow-right" size="14" />
             </NuxtLink>
           </article>
         </div>
@@ -304,17 +252,15 @@
       <div class="container-wide section-padding-sm">
         <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
           <div>
-            <span class="badge-coral">Últimas 72 h</span>
-            <h2 class="mt-2 text-2xl font-bold text-ink">Alertas activas</h2>
-            <p class="mt-1 text-sm text-slate-custom">
-              NOAA Coral Reef Watch · 5 km · actualizado diariamente.
-            </p>
+            <span class="badge-coral">{{ alertsBanner?.eyebrow ?? 'Últimas 72 h' }}</span>
+            <h2 class="mt-2 text-2xl font-bold text-ink">{{ alertsBanner?.title ?? 'Alertas activas' }}</h2>
+            <p class="mt-1 text-sm text-slate-custom">{{ alertsBanner?.subtitle }}</p>
           </div>
           <NuxtLink
-            to="/livemap?layer=noaa-crw-bleaching-alert"
+            :to="alertsBanner?.linkTo ?? '/livemap?layer=noaa-crw-bleaching-alert'"
             class="btn-outline btn-sm"
           >
-            Ver mapa de alertas
+            {{ alertsBanner?.linkLabel ?? 'Ver mapa de alertas' }}
             <Icon name="lucide:arrow-right" size="14" />
           </NuxtLink>
         </div>
@@ -392,14 +338,12 @@
       <div class="container-wide">
         <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
           <div>
-            <span class="badge-primary">Comunidad</span>
-            <h2 class="mt-2 text-2xl font-bold text-ink">Top colaboradores</h2>
-            <p class="mt-1 text-sm text-slate-custom">
-              Reputación basada en aportes validados, calidad y consistencia.
-            </p>
+            <span class="badge-primary">{{ teaser?.eyebrow ?? 'Comunidad' }}</span>
+            <h2 class="mt-2 text-2xl font-bold text-ink">{{ teaser?.title ?? 'Top colaboradores' }}</h2>
+            <p class="mt-1 text-sm text-slate-custom">{{ teaser?.subtitle }}</p>
           </div>
-          <NuxtLink to="/contributors" class="btn-outline btn-sm">
-            Ver todos
+          <NuxtLink :to="teaser?.linkTo ?? '/contributors'" class="btn-outline btn-sm">
+            {{ teaser?.linkLabel ?? 'Ver todos' }}
             <Icon name="lucide:arrow-right" size="14" />
           </NuxtLink>
         </div>
@@ -419,22 +363,16 @@
         <div class="card-glass relative overflow-hidden p-8 md:p-12">
           <div class="grid items-center gap-6 md:grid-cols-[1.4fr_1fr]">
             <div>
-              <h2 class="text-2xl font-bold text-ink md:text-3xl">
-                ¿Vives, buceas o investigas en la costa?
-              </h2>
-              <p class="mt-3 text-base text-slate-custom">
-                Sumate a la red. Aporta fotos, vuelos de dron, transectos o
-                reportes de problemáticas. Un equipo revisa cada aporte y
-                construyes tu reputación con cada validación.
-              </p>
+              <h2 class="text-2xl font-bold text-ink md:text-3xl">{{ cta?.title }}</h2>
+              <p class="mt-3 text-base text-slate-custom">{{ cta?.description }}</p>
             </div>
             <div class="flex flex-wrap gap-3 md:justify-end">
-              <NuxtLink to="/contribute" class="btn-coral btn-lg">
+              <NuxtLink :to="cta?.primaryTo ?? '/contribute'" class="btn-coral btn-lg">
                 <Icon name="lucide:plus" size="18" />
-                Contribuir
+                {{ cta?.primaryLabel ?? 'Contribuir' }}
               </NuxtLink>
-              <NuxtLink to="/about" class="btn-outline btn-lg">
-                Cómo funciona
+              <NuxtLink v-if="cta?.secondaryLabel" :to="cta?.secondaryTo ?? '/about'" class="btn-outline btn-lg">
+                {{ cta.secondaryLabel }}
               </NuxtLink>
             </div>
           </div>
@@ -468,6 +406,70 @@ const { revealRef: featuresRef } = useScrollReveal({ stagger: true });
 const reefsStore = useReefsStore();
 const contributorsStore = useContributorsStore();
 const kpis = useKpis();
+
+// CMS-driven copy — editable desde /admin/contenido/home.
+const cms = useCmsContent('home')
+type HeroShape = {
+  eyebrow: string
+  titleLine1: string
+  titleLine2Prefix: string
+  titleLine2Highlight: string
+  titleLine3: string
+  subtitle: string
+  primaryLabel: string
+  primaryTo: string
+  secondaryLabel: string
+  secondaryTo: string
+}
+const hero = cms.one<HeroShape>('hero')
+const features = cms.list<{
+  icon: string
+  title: string
+  description: string
+  linkLabel: string
+  linkTo: string
+  accent: string
+}>('features')
+const sectionTitle = cms.one<{ eyebrow: string; title: string; subtitle: string }>('sectionTitle')
+const alertsBanner = cms.one<{
+  eyebrow: string
+  title: string
+  subtitle: string
+  linkLabel: string
+  linkTo: string
+}>('alerts')
+const teaser = cms.one<{
+  eyebrow: string
+  title: string
+  subtitle: string
+  linkLabel: string
+  linkTo: string
+}>('contributorsTeaser')
+const cta = cms.one<{
+  title: string
+  description: string
+  primaryLabel: string
+  primaryTo: string
+  secondaryLabel: string
+  secondaryTo: string
+}>('cta')
+
+// Tabla de tokens tailwind para los acentos editables de las features. Mantiene
+// las clases visibles para purgeCSS (no se construyen en runtime sólo con strings).
+const FEATURE_ACCENTS: Record<string, { iconBg: string; link: string }> = {
+  primary: { iconBg: 'bg-primary-50 text-primary', link: 'text-primary' },
+  coral: { iconBg: 'bg-coral/10 text-coral-dark', link: 'text-coral-dark' },
+  eco: { iconBg: 'bg-eco/10 text-eco-dark', link: 'text-eco-dark' },
+  secondary: { iconBg: 'bg-secondary/10 text-secondary-dark', link: 'text-secondary-dark' },
+  accent: { iconBg: 'bg-accent/10 text-accent-dark', link: 'text-accent-dark' },
+  alert: { iconBg: 'bg-alert/10 text-alert', link: 'text-alert' },
+}
+const featureIconClass = (accent: string | undefined) => [
+  'flex h-11 w-11 items-center justify-center rounded-xl',
+  FEATURE_ACCENTS[accent ?? 'primary']?.iconBg ?? FEATURE_ACCENTS.primary.iconBg,
+]
+const featureLinkClass = (accent: string | undefined) =>
+  FEATURE_ACCENTS[accent ?? 'primary']?.link ?? FEATURE_ACCENTS.primary.link
 
 // Hero stats — derivados de publicReefs, no de un objeto estático del módulo.
 const reefSummary = computed(() => {

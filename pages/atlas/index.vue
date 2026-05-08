@@ -2,23 +2,25 @@
   <div>
     <CommonHeroSection compact>
       <div class="max-w-3xl">
-        <span class="badge-coral mb-3 bg-white/15 text-white">Atlas</span>
-        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">Conflictos socioambientales costeros</h1>
-        <p class="mt-3 text-base text-white/80 md:text-lg">
-          Inspirado en EJAtlas. Cada caso documenta quién impulsa la presión, quién resiste,
-          qué arrecifes y comunidades se afectan. Evidencia abierta y verificable.
-        </p>
+        <span class="badge-coral mb-3 bg-white/15 text-white">{{ hero?.eyebrow }}</span>
+        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">{{ hero?.title }}</h1>
+        <p class="mt-3 text-base text-white/80 md:text-lg">{{ hero?.subtitle }}</p>
       </div>
     </CommonHeroSection>
 
     <section class="section-padding-sm">
       <div class="container-wide">
-        <div class="card mb-6 p-4 md:p-5">
-          <div class="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
-            <div class="input-icon-wrapper">
-              <Icon name="lucide:search" size="16" class="input-icon" />
-              <input v-model="store.search" type="search" class="input" placeholder="Buscar conflicto…" />
-            </div>
+        <CommonFilterPanel
+          v-model:search-query="store.search"
+          search-placeholder="Buscar conflicto…"
+          :active-count="store.activeFilterCount"
+          :total="store.publicConflicts.length"
+          :filtered="store.filtered.length"
+          class="mb-6"
+          @clear="store.resetFilters()"
+        >
+          <div class="form-group !mb-0">
+            <label class="form-label">Intensidad</label>
             <select v-model="store.filterIntensity" class="select">
               <option value="all">Toda intensidad</option>
               <option value="low">Baja</option>
@@ -26,19 +28,40 @@
               <option value="high">Alta</option>
               <option value="critical">Crítica</option>
             </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Estado del caso</label>
             <select v-model="store.filterStatus" class="select">
-              <option value="all">Todos los estados</option>
+              <option value="all">Todos</option>
               <option value="emerging">Emergente</option>
               <option value="ongoing">En curso</option>
               <option value="mitigating">Mitigando</option>
               <option value="resolved">Resuelto</option>
             </select>
-            <button class="btn-outline btn-sm" @click="resetFilters">
-              <Icon name="lucide:rotate-ccw" size="14" />
-              Limpiar
-            </button>
           </div>
-        </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Amenaza</label>
+            <select v-model="store.filterThreat" class="select">
+              <option value="all">Cualquiera</option>
+              <option v-for="t in store.threats" :key="t" :value="t">{{ t.replace(/_/g, ' ') }}</option>
+            </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Estado mexicano</label>
+            <select v-model="store.filterState" class="select">
+              <option value="all">Todos</option>
+              <option v-for="s in store.states" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Iniciado desde</label>
+            <input v-model="store.filterDateFrom" type="date" class="input" />
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Iniciado hasta</label>
+            <input v-model="store.filterDateTo" type="date" class="input" />
+          </div>
+        </CommonFilterPanel>
 
         <div class="grid gap-5 md:grid-cols-2">
           <article
@@ -199,6 +222,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useConflictsStore } from '~/stores/conflicts'
+const cmsAtlas = useCmsContent('atlas')
+const hero = cmsAtlas.one<{ eyebrow: string; title: string; subtitle: string }>('hero')
 import type { SocioEnvironmentalConflict } from '~/types'
 
 const store = useConflictsStore()
@@ -212,12 +237,7 @@ const {
 
 const selected = ref<SocioEnvironmentalConflict | null>(null)
 
-const resetFilters = () => {
-  store.search = ''
-  store.filterIntensity = 'all'
-  store.filterStatus = 'all'
-  store.filterThreat = 'all'
-}
+// resetFilters ahora vive en el store (`store.resetFilters()`).
 </script>
 
 <style scoped>

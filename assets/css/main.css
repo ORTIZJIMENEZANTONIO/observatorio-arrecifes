@@ -5,16 +5,53 @@
 @tailwind utilities;
 
 @layer base {
-  html { @apply scroll-smooth; }
-  body { @apply bg-surface text-ink font-sans antialiased; }
-  h1, h2, h3, h4, h5, h6 { @apply font-display font-semibold tracking-tight text-ink; }
+  /* ── Tokens del design system ──
+     Light: superficie marfil + tinta ink.
+     Dark: "modo bajo el agua nocturno" — abismo (#0a1620) con surfaces
+     teal-oscuro (#14252f) preservando la identidad océano/coral del
+     observatorio. Contraste verificado WCAG AA en texto principal.
+  */
+  :root {
+    --c-bg:           #F4F8FA;     /* fondo de la página (light = surface) */
+    --c-surface:      #FFFFFF;     /* tarjetas, modales */
+    --c-surface-2:    #F8FAFC;     /* sub-superficies (filtros, tablas hover) */
+    --c-border:       #E5E7EB;     /* gray-200 */
+    --c-border-soft:  #F1F5F9;     /* gray-100 */
+    --c-ink:          #0F172A;     /* texto principal */
+    --c-ink-muted:    #64748B;     /* texto secundario */
+    --c-ink-soft:     #94A3B8;     /* hint / placeholder */
+  }
+  .dark {
+    --c-bg:           #0A1620;     /* abismo */
+    --c-surface:      #14252F;     /* card */
+    --c-surface-2:    #1A2F3B;     /* sub-superficie */
+    --c-border:       #1F3441;     /* divider */
+    --c-border-soft:  #18293440;
+    --c-ink:          #E6F0F5;     /* claro azulado, no blanco frío */
+    --c-ink-muted:    #94ADBA;
+    --c-ink-soft:     #6B8290;
+  }
+
+  html { @apply scroll-smooth; background-color: var(--c-bg); }
+  body {
+    background-color: var(--c-bg);
+    color: var(--c-ink);
+    @apply font-sans antialiased transition-colors duration-300;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--c-ink);
+    @apply font-display font-semibold tracking-tight;
+  }
   h1 { @apply text-3xl md:text-4xl lg:text-5xl; }
   h2 { @apply text-2xl md:text-3xl; }
   h3 { @apply text-xl md:text-2xl; }
   h4 { @apply text-lg md:text-xl; }
   a { @apply transition-colors duration-200; }
   ::selection { @apply bg-primary/20 text-primary-dark; }
-  * { @apply border-gray-200; }
+  .dark ::selection { @apply bg-primary/40 text-primary-50; }
+
+  /* Default border ahora usa el token, ya no gray-200 fijo. */
+  * { border-color: var(--c-border); }
 }
 
 @layer components {
@@ -24,33 +61,54 @@
   .container-wide { @apply mx-auto max-w-7xl px-4 md:px-6 lg:px-8; }
 
   .card {
-    @apply rounded-2xl bg-white border border-gray-100/80;
+    @apply rounded-2xl;
+    background-color: var(--c-surface);
+    border: 1px solid var(--c-border-soft);
     box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-    transition: box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.25s, border-color 0.25s;
   }
   .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
-  .card-flat { @apply rounded-2xl bg-white border border-gray-100; }
+  .dark .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+
+  .card-flat {
+    @apply rounded-2xl;
+    background-color: var(--c-surface);
+    border: 1px solid var(--c-border-soft);
+  }
   .card-interactive {
-    @apply rounded-2xl bg-white border border-gray-100/80 cursor-pointer;
+    @apply rounded-2xl cursor-pointer;
+    background-color: var(--c-surface);
+    border: 1px solid var(--c-border-soft);
     box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.35s ease;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.35s ease, background-color 0.25s;
   }
   .card-interactive:hover {
     transform: translateY(-3px);
-    border-color: rgba(14,116,144,0.18);
+    border-color: rgba(14,116,144,0.35);
     box-shadow: 0 12px 32px -8px rgba(14,116,144,0.12), 0 4px 8px -2px rgba(0,0,0,0.04);
+  }
+  .dark .card-interactive:hover {
+    border-color: rgba(34,211,238,0.45);
+    box-shadow: 0 12px 32px -8px rgba(34,211,238,0.15), 0 4px 8px -2px rgba(0,0,0,0.4);
   }
   .card-interactive:active {
     transform: translateY(-1px) scale(0.995);
     transition-duration: 0.1s;
   }
   .card-glass {
-    @apply rounded-2xl border border-white/20 backdrop-blur-xl;
+    @apply rounded-2xl backdrop-blur-xl;
     background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.2);
     box-shadow: 0 4px 24px rgba(0,0,0,0.04);
   }
+  .dark .card-glass {
+    background: rgba(20,37,47,0.7);
+    border-color: rgba(148,173,186,0.15);
+  }
   .panel {
-    @apply rounded-2xl bg-white border border-gray-100/80 p-5 md:p-7;
+    @apply rounded-2xl p-5 md:p-7;
+    background-color: var(--c-surface);
+    border: 1px solid var(--c-border-soft);
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
 
@@ -72,31 +130,53 @@
   .btn-secondary { @apply btn bg-secondary text-white hover:bg-secondary-light focus-visible:ring-secondary/50 active:bg-secondary-dark shadow-sm; }
   .btn-coral { @apply btn bg-coral text-white hover:bg-coral-light focus-visible:ring-coral/50 active:bg-coral-dark shadow-sm hover:shadow-md hover:shadow-coral/15; }
   .btn-eco { @apply btn bg-eco text-white hover:bg-eco-light focus-visible:ring-eco/50 active:bg-eco-dark shadow-sm; }
-  .btn-outline { @apply btn border border-gray-200 bg-white text-ink hover:bg-gray-50 hover:border-gray-300 focus-visible:ring-primary/50; }
-  .btn-ghost { @apply btn bg-transparent text-ink-muted hover:bg-gray-100 focus-visible:ring-primary/50; }
+  .btn-outline {
+    @apply btn focus-visible:ring-primary/50;
+    background-color: var(--c-surface);
+    color: var(--c-ink);
+    border: 1px solid var(--c-border);
+  }
+  .btn-outline:hover {
+    background-color: var(--c-surface-2);
+    border-color: var(--c-ink-soft);
+  }
+  .btn-ghost {
+    @apply btn bg-transparent focus-visible:ring-primary/50;
+    color: var(--c-ink-muted);
+  }
+  .btn-ghost:hover { background-color: var(--c-surface-2); }
   .btn-sm { @apply px-3.5 py-1.5 text-xs rounded-lg; }
   .btn-lg { @apply px-7 py-3.5 text-base; }
 
   .kpi-card {
-    @apply rounded-2xl bg-white border border-gray-100/80 p-4 md:p-5 flex flex-col gap-1;
+    @apply rounded-2xl p-4 md:p-5 flex flex-col gap-1;
+    background-color: var(--c-surface);
+    border: 1px solid var(--c-border-soft);
     box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
 
   .form-group { @apply flex flex-col gap-1.5; }
-  .form-label { @apply block text-sm font-medium text-ink; }
-  .form-hint { @apply text-xs text-ink-muted; }
+  .form-label { @apply block text-sm font-medium; color: var(--c-ink); }
+  .form-hint { @apply text-xs; color: var(--c-ink-muted); }
   .form-error { @apply text-xs text-alert; }
   .form-row { @apply grid gap-4 md:grid-cols-2; }
   .form-row-3 { @apply grid gap-4 md:grid-cols-3; }
 
   .input {
-    @apply block w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-ink shadow-sm
+    @apply block w-full rounded-lg px-3.5 py-2.5 text-sm shadow-sm
       placeholder:text-slate-custom/40
-      hover:border-gray-300
       focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 focus:shadow-md focus:shadow-primary/5;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    background-color: var(--c-surface);
+    color: var(--c-ink);
+    border: 1px solid var(--c-border);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
   }
-  .input:disabled, .input[readonly] { @apply bg-gray-50 text-ink-muted cursor-not-allowed opacity-70; }
+  .input:hover { border-color: var(--c-ink-soft); }
+  .input:disabled, .input[readonly] {
+    background-color: var(--c-surface-2);
+    color: var(--c-ink-muted);
+    @apply cursor-not-allowed opacity-70;
+  }
   textarea.input { @apply resize-y min-h-[5rem] leading-relaxed; }
 
   .select {
@@ -186,6 +266,102 @@
 }
 
 @layer utilities {
+  /* ── Re-mapeo dark de utilities de tailwind más usadas ──
+     Permite que la inmensa mayoría de cards/inputs/badges existentes
+     respondan al modo sin tener que tocar cada archivo con `dark:`.
+     Reglas escritas con selector compuesto para que sólo apliquen
+     cuando el contenedor `<html>` tiene la clase `dark`. */
+  .dark .bg-white                  { background-color: var(--c-surface); }
+  .dark .bg-gray-50                { background-color: var(--c-surface-2); }
+  .dark .bg-gray-100               { background-color: var(--c-surface-2); }
+  .dark .bg-surface                { background-color: var(--c-bg); }
+  .dark .text-ink                  { color: var(--c-ink); }
+  .dark .text-ink-muted            { color: var(--c-ink-muted); }
+  .dark .text-ink-light            { color: var(--c-ink-muted); }
+  .dark .text-gray-500             { color: var(--c-ink-muted); }
+  .dark .text-gray-600             { color: var(--c-ink-muted); }
+  .dark .text-gray-700             { color: var(--c-ink); }
+  .dark .text-slate-custom         { color: var(--c-ink-muted); }
+  .dark .text-slate-custom\/40     { color: rgb(148 173 186 / 0.4); }
+  .dark .border-gray-100           { border-color: var(--c-border-soft); }
+  .dark .border-gray-200           { border-color: var(--c-border); }
+  .dark .border-gray-300           { border-color: var(--c-border); }
+  .dark .divide-gray-100 > * + *   { border-color: var(--c-border-soft); }
+  .dark .divide-gray-200 > * + *   { border-color: var(--c-border); }
+  /* Tablas: el fondo blanco/zebra-50 va a surface/surface-2 */
+  .dark thead.bg-gray-50,
+  .dark thead.bg-gray-100,
+  .dark .table-base thead         { background-color: var(--c-surface-2); }
+
+  /* ── Re-mapeo dark de tints de paleta ──
+     bg-primary-50 / bg-eco/10 / bg-coral/10 etc. son backgrounds tintados
+     muy claros pensados para light. En dark se ven como manchas brillantes
+     con texto del mismo color encima → contraste sub-WCAG. Acá
+     intercambiamos por tints oscuros del mismo matiz preservando la
+     identidad visual (sigue siendo "azul reef" / "verde sano" / "rojo alerta")
+     pero con luminosidad correcta para fondo abismal. */
+  .dark .bg-primary-50             { background-color: rgb(14 116 144 / 0.18); }
+  .dark .hover\:bg-primary-50:hover{ background-color: rgb(14 116 144 / 0.22); }
+  .dark .bg-primary-50\/50         { background-color: rgb(14 116 144 / 0.10); }
+  .dark .hover\:bg-primary-50\/50:hover { background-color: rgb(14 116 144 / 0.14); }
+  .dark .bg-primary\/5             { background-color: rgb(14 116 144 / 0.12); }
+  .dark .bg-primary\/10            { background-color: rgb(14 116 144 / 0.18); }
+  .dark .bg-primary\/15            { background-color: rgb(14 116 144 / 0.22); }
+  .dark .bg-eco\/5                 { background-color: rgb(16 185 129 / 0.12); }
+  .dark .bg-eco\/10                { background-color: rgb(16 185 129 / 0.18); }
+  .dark .bg-eco\/15                { background-color: rgb(16 185 129 / 0.22); }
+  .dark .bg-coral\/5               { background-color: rgb(255 122 102 / 0.12); }
+  .dark .bg-coral\/10              { background-color: rgb(255 122 102 / 0.18); }
+  .dark .bg-coral\/15              { background-color: rgb(255 122 102 / 0.22); }
+  .dark .bg-accent\/5              { background-color: rgb(245 158 11 / 0.12); }
+  .dark .bg-accent\/10             { background-color: rgb(245 158 11 / 0.18); }
+  .dark .bg-accent\/15             { background-color: rgb(245 158 11 / 0.22); }
+  .dark .bg-alert\/5               { background-color: rgb(220 38 38 / 0.12); }
+  .dark .bg-alert\/10              { background-color: rgb(220 38 38 / 0.20); }
+  .dark .bg-alert\/15              { background-color: rgb(220 38 38 / 0.25); }
+  .dark .bg-secondary\/5           { background-color: rgb(6 182 212 / 0.12); }
+  .dark .bg-secondary\/10          { background-color: rgb(6 182 212 / 0.18); }
+
+  /* Texto sobre tints oscuros: las variantes -dark son demasiado oscuras
+     para fondo dark; usamos las luminosas para asegurar contraste AA. */
+  .dark .text-primary-dark         { color: #67E8F9; } /* primary-300 */
+  .dark .text-eco-dark             { color: #4ADE80; } /* eco-400 */
+  .dark .text-coral-dark           { color: #FFA193; } /* coral-light */
+  .dark .text-accent-dark          { color: #FBBF24; } /* accent-400 */
+  .dark .text-alert-dark           { color: #F87171; } /* alert-400 */
+  .dark .text-secondary-dark       { color: #67E8F9; }
+
+  /* Borders tintados que aparecen en cards de KPI / banners contextuales. */
+  .dark .border-primary\/15        { border-color: rgb(14 116 144 / 0.4); }
+  .dark .border-primary\/20        { border-color: rgb(14 116 144 / 0.45); }
+  .dark .border-primary\/30        { border-color: rgb(14 116 144 / 0.5); }
+  .dark .border-eco\/20            { border-color: rgb(16 185 129 / 0.4); }
+  .dark .border-eco\/30            { border-color: rgb(16 185 129 / 0.5); }
+  .dark .border-coral\/20          { border-color: rgb(255 122 102 / 0.4); }
+  .dark .border-coral\/30          { border-color: rgb(255 122 102 / 0.5); }
+  .dark .border-accent\/30         { border-color: rgb(245 158 11 / 0.5); }
+  .dark .border-alert\/30          { border-color: rgb(220 38 38 / 0.5); }
+
+  /* Select arrow (SVG inline en .select). El gris original (#5E6B78) se
+     pierde sobre fondo dark. Sobreescribimos con un gris-claro azulado. */
+  .dark .select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394ADBA' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  }
+
+  /* `.hero-cta-primary` — botón blanco sobre fondo SIEMPRE oscuro (hero del
+     home, banners abismales). Inmune a dark mode: el fondo del componente
+     contenedor no cambia con la preferencia, así que el botón debe seguir
+     blanco con texto teal en ambos modos. La doble-clase (.x.x) sube
+     especificidad para vencer al `.dark .bg-white` global sin usar
+     !important. */
+  .hero-cta-primary, .dark .hero-cta-primary.hero-cta-primary {
+    background-color: #FFFFFF;
+    color: #0E7490;
+  }
+  .hero-cta-primary:hover, .dark .hero-cta-primary.hero-cta-primary:hover {
+    background-color: #F4F8FA;
+  }
+
   .text-balance { text-wrap: balance; }
   .text-gradient-primary { @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent; }
   .text-gradient-coral { @apply bg-gradient-to-r from-coral to-accent bg-clip-text text-transparent; }

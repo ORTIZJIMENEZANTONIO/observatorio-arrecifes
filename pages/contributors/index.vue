@@ -2,12 +2,9 @@
   <div>
     <CommonHeroSection compact>
       <div class="max-w-3xl">
-        <span class="badge-coral mb-3 bg-white/15 text-white">Red de colaboradores</span>
-        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">Quienes alimentan la plataforma</h1>
-        <p class="mt-3 text-base text-white/80 md:text-lg">
-          Pescadores, buzos, investigadoras, comunidades costeras. Sistema de reputación
-          inspirado en marketplaces: tu rango sube con cada aporte validado.
-        </p>
+        <span class="badge-coral mb-3 bg-white/15 text-white">{{ hero?.eyebrow }}</span>
+        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">{{ hero?.title }}</h1>
+        <p class="mt-3 text-base text-white/80 md:text-lg">{{ hero?.subtitle }}</p>
       </div>
     </CommonHeroSection>
 
@@ -20,9 +17,9 @@
     <section class="section-padding-sm">
       <div class="container-wide">
         <CommonSectionTitle
-          tag="Modos de participar"
-          title="5 maneras de cuidar el mismo arrecife"
-          subtitle="No hay un mejor camino. Quien sale a pescar todos los días, quien firma un paper, quien sube una foto desde la playa: cada aporte es una pieza distinta del mismo monitoreo. La red sólo funciona cuando los cinco modos coexisten."
+          :tag="modesIntro?.eyebrow ?? 'Modos de participar'"
+          :title="modesIntro?.title ?? '5 maneras de cuidar el mismo arrecife'"
+          :subtitle="modesIntro?.subtitle ?? ''"
         />
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -47,29 +44,29 @@
                   Modo de participar
                 </p>
                 <h3 class="font-display text-lg font-extrabold leading-tight text-ink">
-                  {{ tierMode[t.slug]?.title || t.label }}
+                  {{ t.modeTitle || t.label }}
                 </h3>
               </div>
             </div>
 
             <!-- Quién participa así — audiencia clara -->
-            <div class="mt-3 rounded-lg bg-primary-50/40 px-3 py-2">
+            <div v-if="t.audience || t.description" class="mt-3 rounded-lg bg-primary-50/40 px-3 py-2">
               <p class="text-[10px] font-bold uppercase tracking-wider text-primary">
                 Quién aporta así
               </p>
               <p class="mt-1 text-xs leading-snug text-ink">
-                {{ tierMode[t.slug]?.audience || t.description }}
+                {{ t.audience || t.description }}
               </p>
             </div>
 
             <!-- Aportes típicos — qué tipo de datos genera este modo -->
-            <div class="mt-4 flex-1">
+            <div v-if="t.contributions && t.contributions.length" class="mt-4 flex-1">
               <p class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                 Aportes típicos
               </p>
               <ul class="mt-2 space-y-1.5">
                 <li
-                  v-for="contrib in tierMode[t.slug]?.contributions || []"
+                  v-for="contrib in t.contributions"
                   :key="contrib"
                   class="flex items-start gap-1.5 text-xs leading-snug text-ink-light"
                 >
@@ -80,12 +77,12 @@
             </div>
 
             <!-- Cómo se conecta al resto de la red -->
-            <div v-if="tierMode[t.slug]?.bridge" class="mt-4 rounded-lg bg-gray-50 px-3 py-2">
+            <div v-if="t.bridge" class="mt-4 rounded-lg bg-gray-50 px-3 py-2">
               <p class="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                 Conecta con
               </p>
               <p class="mt-1 text-[11px] leading-snug text-ink-light">
-                {{ tierMode[t.slug]?.bridge }}
+                {{ t.bridge }}
               </p>
             </div>
 
@@ -115,13 +112,10 @@
               <Icon name="lucide:network" size="24" />
             </span>
             <div class="min-w-0 flex-1">
-              <p class="text-xs font-bold uppercase tracking-wider text-primary">Red, no escalera</p>
-              <p class="mt-1 text-sm leading-relaxed text-ink">
-                El observatorio funciona como una red horizontal:
-                la pescadora que ve el blanqueamiento primero, la investigadora que mide el DHW,
-                el ciudadano que comparte una foto. Ninguna pieza está por encima de otra —
-                lo que las une es el mismo arrecife.
+              <p class="text-xs font-bold uppercase tracking-wider text-primary">
+                {{ networkCallout?.heading ?? 'Red, no escalera' }}
               </p>
+              <p class="mt-1 text-sm leading-relaxed text-ink">{{ networkCallout?.body }}</p>
             </div>
             <NuxtLink to="/contribute" class="btn-primary btn-sm shrink-0 self-start sm:self-auto">
               <Icon name="lucide:plus" size="14" />
@@ -135,14 +129,19 @@
     <!-- Filters + Leaderboard -->
     <section class="section-padding-sm">
       <div class="container-wide">
-        <div class="card mb-6 p-4 md:p-5">
-          <div class="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-            <div class="input-icon-wrapper">
-              <Icon name="lucide:search" size="16" class="input-icon" />
-              <input v-model="store.search" type="search" class="input" placeholder="Buscar por nombre, handle o afiliación…" />
-            </div>
+        <CommonFilterPanel
+          v-model:search-query="store.search"
+          search-placeholder="Buscar por nombre, handle o afiliación…"
+          :active-count="store.activeFilterCount"
+          :total="store.contributors.length"
+          :filtered="sorted.length"
+          class="mb-6"
+          @clear="store.resetFilters()"
+        >
+          <div class="form-group !mb-0">
+            <label class="form-label">Rol</label>
             <select v-model="store.filterRole" class="select">
-              <option value="all">Todos los roles</option>
+              <option value="all">Todos</option>
               <option value="researcher">Investigador/a</option>
               <option value="student">Estudiante</option>
               <option value="diver">Buzo</option>
@@ -153,16 +152,41 @@
               <option value="institution">Institución</option>
               <option value="government">Gobierno</option>
             </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Modo de participación</label>
             <select v-model="store.filterTier" class="select">
-              <option value="all">Todos los rangos</option>
-              <option value="bronze">Bronce</option>
-              <option value="silver">Plata</option>
-              <option value="gold">Oro</option>
-              <option value="platinum">Platino</option>
-              <option value="coral">Coral</option>
+              <option value="all">Todos</option>
+              <option value="bronze">Curiosidad ciudadana</option>
+              <option value="silver">Conocimiento del mar</option>
+              <option value="gold">Trabajo en agua</option>
+              <option value="platinum">Investigación formal</option>
+              <option value="coral">Síntesis y curaduría</option>
             </select>
           </div>
-        </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Estado mexicano</label>
+            <select v-model="store.filterState" class="select">
+              <option value="all">Todos</option>
+              <option v-for="s in store.states" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Meses consecutivos activos (mín.)</label>
+            <input
+              v-model.number="store.filterMonthsActiveMin"
+              type="number" min="0" max="60" step="1"
+              class="input"
+              placeholder="0"
+            />
+          </div>
+          <div class="form-group !mb-0 flex items-end">
+            <label class="checkbox-label">
+              <input v-model="store.filterVerifiedOnly" type="checkbox" class="checkbox" />
+              Sólo identidades verificadas
+            </label>
+          </div>
+        </CommonFilterPanel>
 
         <CommonSectionTitle title="Top de la red" subtitle="Ordenado por reputación." />
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -182,16 +206,16 @@
         <div class="card-glass relative overflow-hidden p-8 md:p-12">
           <div class="grid items-center gap-6 md:grid-cols-[1.4fr_1fr]">
             <div>
-              <h2 class="text-2xl font-bold text-ink md:text-3xl">¿Quieres formar parte de la red?</h2>
-              <p class="mt-3 text-sm text-slate-custom">
-                Registra una observación, aporta una imagen satelital, sube un transecto o reporta una problemática.
-                Tu primer aporte validado abre tu perfil público.
-              </p>
+              <h2 class="text-2xl font-bold text-ink md:text-3xl">{{ cta?.title }}</h2>
+              <p class="mt-3 text-sm text-slate-custom">{{ cta?.description }}</p>
             </div>
             <div class="flex flex-wrap gap-3 md:justify-end">
-              <NuxtLink to="/contribute" class="btn-coral btn-lg">
+              <NuxtLink :to="cta?.primaryTo ?? '/contribute'" class="btn-coral btn-lg">
                 <Icon name="lucide:plus" size="18" />
-                Empezar a contribuir
+                {{ cta?.primaryLabel ?? 'Empezar a contribuir' }}
+              </NuxtLink>
+              <NuxtLink v-if="cta?.secondaryLabel" :to="cta?.secondaryTo ?? '/about'" class="btn-outline btn-lg">
+                {{ cta?.secondaryLabel }}
               </NuxtLink>
             </div>
           </div>
@@ -209,6 +233,18 @@ import type { ContributorTier } from '~/types'
 
 const store = useContributorsStore()
 const tiersStore = useTiersStore()
+const cms = useCmsContent('contributors')
+const hero = cms.one<{ eyebrow: string; title: string; subtitle: string }>('hero')
+const modesIntro = cms.one<{ eyebrow: string; title: string; subtitle: string }>('modesIntro')
+const networkCallout = cms.one<{ heading: string; body: string }>('networkCallout')
+const cta = cms.one<{
+  title: string
+  description: string
+  primaryLabel: string
+  primaryTo: string
+  secondaryLabel: string
+  secondaryTo: string
+}>('cta')
 
 // Escalas visibles del backend (con mock fallback). El admin las edita en /admin/tiers.
 const visibleTiers = computed(() => tiersStore.visibleTiers)
@@ -227,65 +263,9 @@ const memberCount = computed<Record<string, number>>(() => {
 })
 
 // ── Copy editorial por modo de participación ────────────────────────────────
-// La red NO es jerárquica — son 5 maneras distintas de aportar al monitoreo.
-// Cada modo tiene una audiencia clara (quién aporta así), aportes típicos
-// (qué tipo de datos genera) y un puente (cómo se conecta con el resto).
-//
-// Mapeo a slugs heredados del tier system: bronze/silver/gold/platinum/coral
-// se reinterpretan como modos, no como rangos. El admin puede renombrar las
-// etiquetas en /admin/tiers si quiere reforzar el reframe a nivel de datos.
-const tierMode: Record<string, { title: string; audience: string; contributions: string[]; bridge: string }> = {
-  bronze: {
-    title: 'Curiosidad ciudadana',
-    audience: 'Personas con interés en el mar mexicano, sin formación técnica formal. Visitas a la playa, snorkel ocasional, vínculo cultural con la costa.',
-    contributions: [
-      'Foto de un arrecife con ubicación y fecha',
-      'Reporte de cambios visibles (color, sargazo, peces)',
-      'Preguntas abiertas al equipo del observatorio',
-    ],
-    bridge: 'El primer ojo que detecta algo nuevo. Las personas del mar y de campo verifican lo que reporta este modo.',
-  },
-  silver: {
-    title: 'Conocimiento del mar',
-    audience: 'Pescadoras, buzos, operadoras turísticas, comunidades costeras. Saber empírico construido sobre años de presencia en el agua.',
-    contributions: [
-      'Patrones locales: mareas, especies, blanqueamiento estacional',
-      'Histórico oral de eventos en su zona (huracanes, derrames)',
-      'Verificación en campo de capas satelitales',
-    ],
-    bridge: 'Da contexto territorial a los datos satelitales y a los muestreos académicos. Sin este modo, los números flotan.',
-  },
-  gold: {
-    title: 'Trabajo en agua',
-    audience: 'Profesionales de campo: buzos certificados, biólogas, oceanógrafas, pilotas de dron. Mediciones in situ con instrumentación.',
-    contributions: [
-      'Transectos cuantitativos de cobertura coralina',
-      'Vuelos de dron submarino y aéreo',
-      'Muestreos de calidad de agua y temperatura',
-    ],
-    bridge: 'Traduce el conocimiento del mar y la observación ciudadana en mediciones replicables que la academia puede analizar.',
-  },
-  platinum: {
-    title: 'Investigación formal',
-    audience: 'Academia, ICML-UNAM, CINVESTAV, posgrados, ONGs científicas. Trabajo revisado por pares y series de tiempo de largo plazo.',
-    contributions: [
-      'Estudios peer-reviewed publicados',
-      'Series de tiempo de monitoreo (DHW, SST, cobertura)',
-      'Procesamiento de datos satelitales NASA / NOAA / ESA',
-    ],
-    bridge: 'Provee el marco metodológico y la rigurosidad estadística. Reúne aportes de los otros modos para construir narrativa científica.',
-  },
-  coral: {
-    title: 'Síntesis y curaduría',
-    audience: 'Equipo del observatorio, revisores con trayectoria, instituciones aliadas (CONANP, SEMARNAT, CIIEMAD-IPN).',
-    contributions: [
-      'Validación cruzada entre los cinco modos',
-      'Coordinación con CONANP y comunidades',
-      'Publicación oficial y comunicación pública',
-    ],
-    bridge: 'Cierra el ciclo: integra la mirada ciudadana, el saber del mar, los datos de campo y la investigación en una sola voz pública.',
-  },
-}
+// El contenido de los 5 modos vive en la BD desde el reframe del tier system
+// (campos `modeTitle`, `audience`, `contributions[]`, `bridge` en `obs_tiers`).
+// El admin los edita desde `/admin/tiers`. Esta página los lee del store.
 
 const tierIcon = (key: ContributorTier | string): string => {
   const map: Record<string, string> = {

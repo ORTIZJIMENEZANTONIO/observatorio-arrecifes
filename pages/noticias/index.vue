@@ -8,6 +8,9 @@ useHead({
 const store = useNewsStore()
 const { revealRef } = useScrollReveal({ stagger: true })
 
+const cms = useCmsContent('noticias')
+const hero = cms.one<{ eyebrow: string; title: string; subtitle: string }>('hero')
+
 onMounted(() => {
   if (!store.articles.length) useBackendSync().syncNews()
 })
@@ -25,23 +28,21 @@ const restArticles = computed<ReefNewsArticle[]>(() => store.filtered.slice(1))
 <template>
   <main>
     <CommonHeroSection
-      eyebrow="Editorial"
-      title="Noticias del observatorio"
-      subtitle="Análisis, recopilación de prensa y notas de campo sobre arrecifes mexicanos. Cada nota cita su fuente original."
+      :eyebrow="hero?.eyebrow ?? 'Editorial'"
+      :title="hero?.title ?? 'Noticias del observatorio'"
+      :subtitle="hero?.subtitle ?? ''"
     />
 
     <section class="container-wide section-padding">
-      <!-- Filtros -->
-      <div class="mb-8 flex flex-wrap items-end gap-3">
-        <div class="form-group !mb-0 grow">
-          <label class="form-label">Buscar</label>
-          <input
-            v-model="store.search"
-            type="text"
-            class="input"
-            placeholder="Título o resumen…"
-          />
-        </div>
+      <CommonFilterPanel
+        v-model:search-query="store.search"
+        search-placeholder="Título o resumen…"
+        :active-count="store.activeFilterCount"
+        :total="store.publicCount"
+        :filtered="store.filtered.length"
+        class="mb-8"
+        @clear="store.resetFilters()"
+      >
         <div class="form-group !mb-0">
           <label class="form-label">Etiqueta</label>
           <select v-model="store.tagFilter" class="select">
@@ -49,10 +50,29 @@ const restArticles = computed<ReefNewsArticle[]>(() => store.filtered.slice(1))
             <option v-for="t in store.allTags" :key="t" :value="t">{{ t }}</option>
           </select>
         </div>
-        <p class="ml-auto text-xs text-ink-muted">
-          {{ store.filtered.length }} de {{ store.articles.length }} artículos
-        </p>
-      </div>
+        <div class="form-group !mb-0">
+          <label class="form-label">Fuente</label>
+          <select v-model="store.sourceFilter" class="select">
+            <option value="">Todas</option>
+            <option v-for="s in store.allSources" :key="s" :value="s">{{ s }}</option>
+          </select>
+        </div>
+        <div class="form-group !mb-0">
+          <label class="form-label">Publicada desde</label>
+          <input v-model="store.dateFrom" type="date" class="input" />
+        </div>
+        <div class="form-group !mb-0">
+          <label class="form-label">Publicada hasta</label>
+          <input v-model="store.dateTo" type="date" class="input" />
+        </div>
+        <div class="form-group !mb-0">
+          <label class="form-label">Orden</label>
+          <select v-model="store.sortBy" class="select">
+            <option value="recent">Más recientes primero</option>
+            <option value="oldest">Más antiguas primero</option>
+          </select>
+        </div>
+      </CommonFilterPanel>
 
       <div v-if="store.filtered.length === 0" class="card p-8 text-center text-sm text-ink-muted">
         No hay artículos que coincidan con los filtros actuales.

@@ -2,42 +2,105 @@
   <div>
     <CommonHeroSection compact>
       <div class="max-w-3xl">
-        <span class="badge-coral mb-3 bg-white/15 text-white">Inventario</span>
-        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">Arrecifes monitoreados</h1>
+        <span class="badge-coral mb-3 bg-white/15 text-white">{{ hero?.eyebrow }}</span>
+        <h1 class="font-display text-3xl font-extrabold text-white md:text-5xl">{{ hero?.title }}</h1>
         <p class="mt-3 text-base text-white/80 md:text-lg">
-          {{ store.totalCount }} arrecifes coralinos documentados en el Pacífico, Golfo de México y Caribe mexicano.
-          Datos consolidados de CONANP, CONABIO, Allen Coral Atlas y literatura académica.
+          {{ interpolateCmsText(hero?.subtitle, { count: store.totalCount }) }}
         </p>
       </div>
     </CommonHeroSection>
 
     <section class="section-padding-sm">
       <div class="container-wide">
-        <!-- Filters -->
-        <div class="card mb-6 p-4 md:p-5">
-          <div class="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
-            <div class="input-icon-wrapper">
-              <Icon name="lucide:search" size="16" class="input-icon" />
-              <input v-model="store.search" type="search" class="input" placeholder="Buscar por nombre, estado o región…" />
-            </div>
+        <!-- Filtros (mobile-first via FilterPanel) -->
+        <CommonFilterPanel
+          v-model:search-query="store.search"
+          search-placeholder="Buscar por nombre, estado o región…"
+          :active-count="store.activeFilterCount"
+          :total="store.totalCount"
+          :filtered="store.filtered.length"
+          class="mb-6"
+          @clear="store.resetFilters()"
+        >
+          <div class="form-group !mb-0">
+            <label class="form-label">Litoral</label>
             <select v-model="store.filterOcean" class="select">
-              <option value="all">Todos los litorales</option>
+              <option value="all">Todos</option>
               <option value="caribbean">Caribe</option>
               <option value="gulf_of_mexico">Golfo de México</option>
               <option value="pacific">Pacífico</option>
             </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Estado</label>
             <select v-model="store.filterState" class="select">
-              <option value="all">Todos los estados</option>
+              <option value="all">Todos</option>
               <option v-for="s in store.states" :key="s" :value="s">{{ s }}</option>
             </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Estatus de salud</label>
+            <select v-model="store.filterStatus" class="select">
+              <option value="all">Todos</option>
+              <option value="healthy">Sano</option>
+              <option value="watch">Vigilancia</option>
+              <option value="warning">Alerta</option>
+              <option value="alert">Alerta crítica</option>
+              <option value="bleaching">Blanqueamiento</option>
+              <option value="mortality">Mortalidad</option>
+            </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Protección</label>
+            <select v-model="store.filterProtection" class="select">
+              <option value="all">Todas</option>
+              <option v-for="p in store.protections" :key="p" :value="p">
+                {{ {
+                  anp_federal: 'ANP federal',
+                  anp_state: 'ANP estatal',
+                  ramsar: 'Ramsar',
+                  unesco: 'UNESCO',
+                  unprotected: 'Sin protección',
+                }[p] || p }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Amenaza específica</label>
+            <select v-model="store.filterThreat" class="select">
+              <option value="all">Cualquiera</option>
+              <option v-for="t in store.threats" :key="t" :value="t">{{ t.replace(/_/g, ' ') }}</option>
+            </select>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">
+              Cobertura coral viva: {{ store.filterCoverMin }}% – {{ store.filterCoverMax }}%
+            </label>
+            <div class="flex items-center gap-2">
+              <input
+                v-model.number="store.filterCoverMin"
+                type="range" min="0" max="100" step="1"
+                class="grow"
+                aria-label="Cobertura mínima"
+              />
+              <input
+                v-model.number="store.filterCoverMax"
+                type="range" min="0" max="100" step="1"
+                class="grow"
+                aria-label="Cobertura máxima"
+              />
+            </div>
+          </div>
+          <div class="form-group !mb-0">
+            <label class="form-label">Ordenar por</label>
             <select v-model="sortBy" class="select">
-              <option value="name">Ordenar: Nombre</option>
+              <option value="name">Nombre</option>
               <option value="area">Superficie (mayor)</option>
               <option value="cover">Cobertura coral (mayor)</option>
               <option value="alert">Mayor alerta</option>
             </select>
           </div>
-        </div>
+        </CommonFilterPanel>
 
         <!-- Cards grid -->
         <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -210,6 +273,8 @@ import { useReefsStore } from '~/stores/reefs'
 import type { Reef } from '~/types'
 
 const store = useReefsStore()
+const cms = useCmsContent('inventory')
+const hero = cms.one<{ eyebrow: string; title: string; subtitle: string }>('hero')
 const {
   formatNumber,
   formatDepth,

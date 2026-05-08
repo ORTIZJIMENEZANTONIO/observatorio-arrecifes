@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ReefNewsArticle, ReefNewsProspect } from '~/types'
+import { GLOSSARY } from '~/data/admin-glossary'
 
 definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })
 
@@ -209,6 +210,28 @@ const runScraper = async () => {
   }
 }
 
+// Paginación independiente para cada tab.
+const articlesAsList = computed(() => articles.value)
+const prospectsAsList = computed(() => prospects.value)
+const {
+  sorted: sortedArticles,
+  sortKey: articlesSortKey,
+  sortDir: articlesSortDir,
+  toggleSort: toggleArticlesSort,
+} = useSortableList(articlesAsList, { defaultKey: 'publishedAt', defaultDir: 'desc' })
+const {
+  paginated: paginatedArticles,
+  currentPage: articlesPage,
+  totalPages: articlesTotalPages,
+  perPage: articlesPerPage,
+} = usePaginatedList(sortedArticles, { perPage: 15 })
+const {
+  paginated: paginatedProspects,
+  currentPage: prospectsPage,
+  totalPages: prospectsTotalPages,
+  perPage: prospectsPerPage,
+} = usePaginatedList(prospectsAsList, { perPage: 15 })
+
 onMounted(() => {
   loadArticles()
   loadProspects()
@@ -246,7 +269,14 @@ watch(prospectsFilter, loadProspects)
           : 'border-transparent text-ink-muted hover:text-ink'"
         @click="activeTab = tab"
       >
-        {{ tab }}
+        <AdminInfoTooltip
+          v-if="tab === 'prospectos'"
+          :text="GLOSSARY.prospect"
+          variant="inline"
+        >
+          {{ tab }}
+        </AdminInfoTooltip>
+        <template v-else>{{ tab }}</template>
         <span v-if="tab === 'publicados'" class="ml-1 text-xs text-ink-muted">({{ articles.length }})</span>
         <span v-else class="ml-1 text-xs text-ink-muted">({{ prospects.length }})</span>
       </button>
@@ -335,16 +365,16 @@ watch(prospectsFilter, loadProspects)
         <table class="table-base text-sm">
           <thead>
             <tr>
-              <th class="text-left">Título</th>
-              <th class="text-left">Autor</th>
-              <th class="text-left">Fuente</th>
-              <th class="text-left">Fecha</th>
-              <th class="text-center">Visible</th>
+              <AdminSortableTh sort-key="title" :current-key="articlesSortKey" :current-dir="articlesSortDir" align="left" @sort="toggleArticlesSort('title')">Título</AdminSortableTh>
+              <AdminSortableTh sort-key="author" :current-key="articlesSortKey" :current-dir="articlesSortDir" align="left" @sort="toggleArticlesSort('author')">Autor</AdminSortableTh>
+              <AdminSortableTh sort-key="source" :current-key="articlesSortKey" :current-dir="articlesSortDir" align="left" @sort="toggleArticlesSort('source')">Fuente</AdminSortableTh>
+              <AdminSortableTh sort-key="publishedAt" :current-key="articlesSortKey" :current-dir="articlesSortDir" align="left" @sort="toggleArticlesSort('publishedAt')">Fecha</AdminSortableTh>
+              <AdminSortableTh sort-key="visible" :current-key="articlesSortKey" :current-dir="articlesSortDir" align="center" @sort="toggleArticlesSort('visible')">Visible</AdminSortableTh>
               <th class="text-right">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="a in articles" :key="a.id" class="border-t border-gray-100">
+            <tr v-for="a in paginatedArticles" :key="a.id" class="border-t border-gray-100">
               <td class="py-2 font-medium text-ink">{{ a.title }}</td>
               <td class="text-ink-muted">{{ a.author }}</td>
               <td>
@@ -370,7 +400,14 @@ watch(prospectsFilter, loadProspects)
           </tbody>
         </table>
       </div>
-      <p v-else-if="!articlesLoading" class="text-sm text-ink-muted">Sin artículos publicados aún.</p>
+      <CommonPaginationControls
+        v-if="articles.length > 0"
+        v-model:current-page="articlesPage"
+        :total-pages="articlesTotalPages"
+        :total-items="articles.length"
+        :per-page="articlesPerPage"
+      />
+      <p v-if="!articles.length && !articlesLoading" class="text-sm text-ink-muted">Sin artículos publicados aún.</p>
     </section>
 
     <!-- ─── Prospectos (scraper) ─── -->
@@ -388,7 +425,7 @@ watch(prospectsFilter, loadProspects)
 
       <div v-if="prospects.length > 0" class="space-y-3">
         <div
-          v-for="p in prospects"
+          v-for="p in paginatedProspects"
           :key="p.id"
           class="card flex flex-wrap items-start gap-4 p-4"
         >
@@ -419,7 +456,14 @@ watch(prospectsFilter, loadProspects)
           </div>
         </div>
       </div>
-      <p v-else-if="!prospectsLoading" class="text-sm text-ink-muted">
+      <CommonPaginationControls
+        v-if="prospects.length > 0"
+        v-model:current-page="prospectsPage"
+        :total-pages="prospectsTotalPages"
+        :total-items="prospects.length"
+        :per-page="prospectsPerPage"
+      />
+      <p v-if="!prospects.length && !prospectsLoading" class="text-sm text-ink-muted">
         No hay prospectos en estado <strong>{{ prospectsFilter }}</strong>.
         <span v-if="prospectsFilter === 'pending'">Ejecuta el scraper para traer noticias nuevas.</span>
       </p>

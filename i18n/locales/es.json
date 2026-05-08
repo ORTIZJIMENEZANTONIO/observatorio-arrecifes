@@ -1,0 +1,93 @@
+{
+  "site": {
+    "title": "Observatorio de Arrecifes",
+    "subtitle": "México · Vivo",
+    "contribute": "Contribuir",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú"
+  },
+  "nav": {
+    "livemap": "Mapa vivo",
+    "inventory": "Arrecifes",
+    "atlas": "Atlas",
+    "dataSources": "Datos",
+    "contributors": "Comunidad",
+    "observations": "Observaciones",
+    "news": "Noticias",
+    "about": "Sobre"
+  },
+  "footer": {
+    "tagline": "Plataforma viva de monitoreo de arrecifes coralinos mexicanos",
+    "institution": "Iniciativa institucional CIIEMAD — Instituto Politécnico Nacional",
+    "license": "Código bajo licencia Apache 2.0. Cada capa de datos preserva su licencia original.",
+    "rights": "Todos los datos abiertos son atribuidos a su fuente original."
+  },
+  "common": {
+    "loading": "Cargando…",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "refresh": "Actualizar",
+    "export": "Exportar",
+    "noData": "Sin datos",
+    "language": "Idioma",
+    "darkMode": "Modo oscuro",
+    "lightMode": "Modo claro"
+  },
+  "admin": {
+    "panel": "Panel de administración",
+    "dashboard": "Dashboard",
+    "monitoring": "Monitoreo",
+    "reefs": "Arrecifes",
+    "observations": "Observaciones",
+    "atlas": "Atlas",
+    "news": "Noticias",
+    "content": "Contenido",
+    "alerts": "Alertas",
+    "coastalDetector": "Detector costero",
+    "layers": "Capas",
+    "community": "Comunidad",
+    "scales": "Escalas",
+    "users": "Usuarios",
+    "viewPublic": "Ver sitio público",
+    "logout": "Cerrar sesión",
+    "loginEmail": "Correo electrónico",
+    "loginPassword": "Contraseña",
+    "loginSubmit": "Iniciar sesión",
+    "kpis": {
+      "publicReefs": "Arrecifes públicos",
+      "pendingSubmissions": "Aportes pendientes",
+      "validatedSubmissions": "Aportes validados",
+      "publicConflicts": "Conflictos públicos",
+      "contributors": "Colaboradores"
+    }
+  },
+  "manual": {
+    "title": "Manual del observatorio",
+    "intro": "Cómo funciona la plataforma, qué datos satelitales usamos, qué hace cada análisis y por qué lo decidimos así.",
+    "sections": {
+      "what": "¿Qué es este observatorio?",
+      "flow": "Flujo de los datos",
+      "satellites": "Tecnologías satelitales",
+      "osm": "OpenStreetMap & Overpass",
+      "detector": "Detector de invasión costera",
+      "stats": "Estadística aplicada",
+      "tracking": "Tracking de uso",
+      "glossary": "Glosario de siglas",
+      "limits": "Limitaciones honestas"
+    }
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Datos abiertos · NASA · NOAA · CONABIO",
+      "title": "Observatorio vivo de los arrecifes mexicanos",
+      "subtitle": "Mapa interactivo, alertas casi en tiempo real, atlas de conflictos socioambientales y red verificada de pescadoras, buzos, comunidades costeras e investigadoras.",
+      "ctaPrimary": "Explorar mapa",
+      "ctaSecondary": "Contribuir"
+    }
+  }
+}

@@ -13,13 +13,13 @@
             </div>
             <div class="hidden sm:block">
               <span class="text-sm font-bold leading-tight text-ink"
-                >Observatorio de Arrecifes</span
+                >{{ $t('site.title') }}</span
               >
               <span
                 class="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-coral-dark"
               >
                 <span class="live-dot" />
-                México · Vivo
+                {{ $t('site.subtitle') }}
               </span>
             </div>
           </NuxtLink>
@@ -72,17 +72,19 @@
               </a>
             </div>
 
+            <CommonLocaleSwitcher />
+
             <NuxtLink
               to="/contribute"
               class="btn-coral btn-sm hidden lg:inline-flex"
             >
               <Icon name="lucide:plus" size="16" />
-              Contribuir
+              {{ $t('site.contribute') }}
             </NuxtLink>
 
             <button
               class="flex h-10 w-10 items-center justify-center rounded-lg text-ink transition-colors hover:bg-gray-100 active:bg-gray-200 lg:hidden"
-              aria-label="Abrir menú"
+              :aria-label="$t('site.openMenu')"
               @click="mobileOpen = true"
             >
               <svg
@@ -128,17 +130,17 @@
             </div>
             <div>
               <span class="block text-sm font-bold leading-tight text-ink"
-                >Observatorio de Arrecifes</span
+                >{{ $t('site.title') }}</span
               >
               <span
                 class="block text-[10px] font-medium uppercase tracking-wider text-coral-dark"
-                >México · Vivo</span
+                >{{ $t('site.subtitle') }}</span
               >
             </div>
           </div>
           <button
             class="flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted hover:bg-gray-100"
-            aria-label="Cerrar menú"
+            :aria-label="$t('site.closeMenu')"
             @click="mobileOpen = false"
           >
             <svg
@@ -190,6 +192,8 @@
           </NuxtLink>
         </nav>
         <div class="space-y-3 border-t border-gray-100 p-4">
+          <CommonLocaleSwitcher variant="menu" />
+          <CommonColorModeToggle variant="menu" />
           <div class="flex items-center justify-center gap-4">
             <a
               href="https://www.ipn.mx/"
@@ -222,7 +226,7 @@
             @click="mobileOpen = false"
           >
             <Icon name="lucide:plus" size="16" />
-            Contribuir
+            {{ $t('site.contribute') }}
           </NuxtLink>
         </div>
       </div>
@@ -233,19 +237,22 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
+const { t } = useI18n();
+
 const mobileOpen = ref(false);
-const navLinks = [
-  { to: "/livemap", label: "Mapa vivo", icon: "lucide:globe" },
-  { to: "/inventory", label: "Arrecifes", icon: "lucide:list" },
-  { to: "/atlas", label: "Atlas", icon: "lucide:alert-triangle" },
-  { to: "/data-sources", label: "Datos", icon: "lucide:database" },
-  { to: "/contributors", label: "Comunidad", icon: "lucide:users" },
-  { to: "/noticias", label: "Noticias", icon: "lucide:newspaper" }
-];
-const secondaryLinks = [
-  { to: "/observations", label: "Observaciones", icon: "lucide:camera" },
-  { to: "/about", label: "Sobre", icon: "lucide:info" },
-];
+// Las labels usan computed para que reaccionen al cambio de locale.
+const navLinks = computed(() => [
+  { to: "/about", label: t("nav.about"), icon: "lucide:info" },
+  { to: "/livemap", label: t("nav.livemap"), icon: "lucide:globe" },
+  { to: "/inventory", label: t("nav.inventory"), icon: "lucide:list" },
+  { to: "/atlas", label: t("nav.atlas"), icon: "lucide:alert-triangle" },
+  { to: "/data-sources", label: t("nav.dataSources"), icon: "lucide:database" },
+  { to: "/contributors", label: t("nav.contributors"), icon: "lucide:users" },
+  { to: "/noticias", label: t("nav.news"), icon: "lucide:newspaper" },
+]);
+const secondaryLinks = computed(() => [
+  { to: "/observations", label: t("nav.observations"), icon: "lucide:camera" },
+]);
 
 const route = useRoute();
 const isActive = (to: string) =>

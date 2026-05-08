@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Contributor } from '~/types'
+import { GLOSSARY } from '~/data/admin-glossary'
 
 definePageMeta({ layout: 'admin', middleware: 'admin', pageTransition: false })
 
@@ -53,6 +54,9 @@ const filtered = computed(() => {
     return true
   })
 })
+
+const { sorted, sortKey, sortDir, toggleSort } = useSortableList(filtered, { defaultKey: 'reputationScore', defaultDir: 'desc' })
+const { paginated: paginatedContribs, currentPage, totalPages, perPage } = usePaginatedList(sorted, { perPage: 15 })
 
 const resetFilters = () => {
   search.value = ''
@@ -217,7 +221,9 @@ onMounted(load)
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Tier</label>
+          <label class="form-label">
+            <AdminInfoTooltip :text="GLOSSARY.tier" variant="inline">Modo (tier)</AdminInfoTooltip>
+          </label>
           <select v-model="filterTier" class="select w-full">
             <option value="all">Todos</option>
             <option value="bronze">Bronce</option>
@@ -257,18 +263,22 @@ onMounted(load)
       <table class="table-base">
         <thead>
           <tr>
-            <th class="text-left">Colaborador</th>
-            <th class="text-left">Rol</th>
-            <th class="text-left">Tier</th>
-            <th class="text-right">Reputación</th>
-            <th class="text-right">Validados</th>
-            <th class="text-right">Calidad</th>
-            <th class="text-center">Verificado</th>
+            <AdminSortableTh sort-key="displayName" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('displayName')">Colaborador</AdminSortableTh>
+            <AdminSortableTh sort-key="role" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('role')">Rol</AdminSortableTh>
+            <AdminSortableTh sort-key="tier" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('tier')">
+              <AdminInfoTooltip :text="GLOSSARY.tier" variant="inline">Modo</AdminInfoTooltip>
+            </AdminSortableTh>
+            <AdminSortableTh sort-key="reputationScore" :current-key="sortKey" :current-dir="sortDir" align="right" @sort="toggleSort('reputationScore')">
+              <AdminInfoTooltip :text="GLOSSARY.reputationScore" variant="inline">Reputación</AdminInfoTooltip>
+            </AdminSortableTh>
+            <AdminSortableTh sort-key="validatedContributions" :current-key="sortKey" :current-dir="sortDir" align="right" @sort="toggleSort('validatedContributions')">Validados</AdminSortableTh>
+            <AdminSortableTh sort-key="averageQuality" :current-key="sortKey" :current-dir="sortDir" align="right" @sort="toggleSort('averageQuality')">Calidad</AdminSortableTh>
+            <AdminSortableTh sort-key="verified" :current-key="sortKey" :current-dir="sortDir" align="center" @sort="toggleSort('verified')">Verificado</AdminSortableTh>
             <th class="text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in filtered" :key="c.id" class="border-t border-gray-100 hover:bg-gray-50/50">
+          <tr v-for="c in paginatedContribs" :key="c.id" class="border-t border-gray-100 hover:bg-gray-50/50">
             <td class="py-3">
               <p class="font-medium text-ink">{{ c.displayName }}</p>
               <p class="text-xs text-ink-muted">@{{ c.handle }} · {{ c.affiliation || '—' }}</p>
@@ -297,6 +307,14 @@ onMounted(load)
         </tbody>
       </table>
     </div>
+
+    <CommonPaginationControls
+      v-if="filtered.length > 0"
+      v-model:current-page="currentPage"
+      :total-pages="totalPages"
+      :total-items="filtered.length"
+      :per-page="perPage"
+    />
 
     <Transition name="fade">
       <div v-if="editingId !== null" class="fixed inset-0 z-[200] flex items-end justify-center overflow-y-auto bg-black/40 sm:items-center" @click.self="closeEditor">
@@ -336,7 +354,9 @@ onMounted(load)
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label">Tier</label>
+                <label class="form-label">
+            <AdminInfoTooltip :text="GLOSSARY.tier" variant="inline">Modo (tier)</AdminInfoTooltip>
+          </label>
                 <select v-model="form.tier" class="select w-full">
                   <option value="bronze">Bronce</option>
                   <option value="silver">Plata</option>
@@ -369,7 +389,11 @@ onMounted(load)
 
             <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
               <div class="form-group">
-                <label class="form-label">Reputación</label>
+                <label class="form-label">
+                  <AdminInfoTooltip :text="GLOSSARY.reputationScore" variant="inline">
+                    Reputación
+                  </AdminInfoTooltip>
+                </label>
                 <input v-model.number="form.reputationScore" type="number" min="0" class="input w-full" />
               </div>
               <div class="form-group">

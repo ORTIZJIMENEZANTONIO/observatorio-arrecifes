@@ -59,6 +59,9 @@ const filtered = computed(() => {
   })
 })
 
+const { sorted, sortKey, sortDir, toggleSort } = useSortableList(filtered, { defaultKey: 'name' })
+const { paginated: paginatedReefs, currentPage, totalPages, perPage } = usePaginatedList(sorted, { perPage: 15 })
+
 const resetFilters = () => {
   search.value = ''
   filterOcean.value = 'all'
@@ -298,18 +301,18 @@ onMounted(load)
       <table class="table-base">
         <thead>
           <tr>
-            <th class="text-left">Arrecife</th>
-            <th class="text-left">Estado</th>
-            <th class="text-left">Litoral</th>
-            <th class="text-left">Estatus</th>
-            <th class="text-right">Cobertura</th>
-            <th class="text-center">Visible</th>
-            <th class="text-center">Archivado</th>
+            <AdminSortableTh sort-key="name" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('name')">Arrecife</AdminSortableTh>
+            <AdminSortableTh sort-key="state" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('state')">Estado</AdminSortableTh>
+            <AdminSortableTh sort-key="ocean" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('ocean')">Litoral</AdminSortableTh>
+            <AdminSortableTh sort-key="status" :current-key="sortKey" :current-dir="sortDir" align="left" @sort="toggleSort('status')">Estatus</AdminSortableTh>
+            <AdminSortableTh sort-key="liveCoralCover" :current-key="sortKey" :current-dir="sortDir" align="right" @sort="toggleSort('liveCoralCover')">Cobertura</AdminSortableTh>
+            <AdminSortableTh sort-key="visible" :current-key="sortKey" :current-dir="sortDir" align="center" @sort="toggleSort('visible')">Visible</AdminSortableTh>
+            <AdminSortableTh sort-key="archived" :current-key="sortKey" :current-dir="sortDir" align="center" @sort="toggleSort('archived')">Archivado</AdminSortableTh>
             <th class="text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in filtered" :key="r.id" class="border-t border-gray-100 hover:bg-gray-50/50">
+          <tr v-for="r in paginatedReefs" :key="r.id" class="border-t border-gray-100 hover:bg-gray-50/50">
             <td class="py-3">
               <p class="font-medium text-ink">{{ r.name }}</p>
               <p class="text-xs text-ink-muted">{{ r.region }}</p>
@@ -342,6 +345,14 @@ onMounted(load)
         </tbody>
       </table>
     </div>
+
+    <CommonPaginationControls
+      v-if="filtered.length > 0"
+      v-model:current-page="currentPage"
+      :total-pages="totalPages"
+      :total-items="filtered.length"
+      :per-page="perPage"
+    />
 
     <!-- Create / Edit modal -->
     <Transition name="fade">

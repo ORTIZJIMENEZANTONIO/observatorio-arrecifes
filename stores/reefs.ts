@@ -37,6 +37,11 @@ export const useReefsStore = defineStore('reefs', () => {
   const filterState = ref<CoastalState | 'all'>('all')
   const filterOcean = ref<Ocean | 'all'>('all')
   const filterStatus = ref<ReefStatus | 'all'>('all')
+  // Filtros avanzados (Fase mobile-first)
+  const filterProtection = ref<string | 'all'>('all')
+  const filterThreat = ref<string | 'all'>('all')
+  const filterCoverMin = ref<number>(0)    // % cobertura coral mínimo
+  const filterCoverMax = ref<number>(100)  // % cobertura coral máximo
 
   const publicReefs = computed(() =>
     reefs.value.filter((r) => (r.visible ?? true) && !(r.archived ?? false)),
@@ -49,8 +54,49 @@ export const useReefsStore = defineStore('reefs', () => {
       if (filterState.value !== 'all' && r.state !== filterState.value) return false
       if (filterOcean.value !== 'all' && r.ocean !== filterOcean.value) return false
       if (filterStatus.value !== 'all' && r.status !== filterStatus.value) return false
+      if (filterProtection.value !== 'all' && r.protection !== filterProtection.value) return false
+      if (filterThreat.value !== 'all' && !(r.threats || []).includes(filterThreat.value as any)) return false
+      const cover = Number(r.liveCoralCover)
+      if (Number.isFinite(cover)) {
+        if (cover < filterCoverMin.value || cover > filterCoverMax.value) return false
+      }
       return true
     })
+  })
+
+  const resetFilters = () => {
+    search.value = ''
+    filterState.value = 'all'
+    filterOcean.value = 'all'
+    filterStatus.value = 'all'
+    filterProtection.value = 'all'
+    filterThreat.value = 'all'
+    filterCoverMin.value = 0
+    filterCoverMax.value = 100
+  }
+
+  const activeFilterCount = computed(() => {
+    let n = 0
+    if (search.value.trim()) n++
+    if (filterState.value !== 'all') n++
+    if (filterOcean.value !== 'all') n++
+    if (filterStatus.value !== 'all') n++
+    if (filterProtection.value !== 'all') n++
+    if (filterThreat.value !== 'all') n++
+    if (filterCoverMin.value > 0 || filterCoverMax.value < 100) n++
+    return n
+  })
+
+  // Listas únicas para los selects (derivadas de la data real).
+  const protections = computed(() => {
+    const set = new Set<string>()
+    publicReefs.value.forEach((r) => set.add(r.protection))
+    return Array.from(set).sort()
+  })
+  const threats = computed(() => {
+    const set = new Set<string>()
+    publicReefs.value.forEach((r) => (r.threats || []).forEach((t) => set.add(t as any)))
+    return Array.from(set).sort()
   })
 
   const totalCount = computed(() => publicReefs.value.length)
@@ -97,12 +143,20 @@ export const useReefsStore = defineStore('reefs', () => {
     filterState,
     filterOcean,
     filterStatus,
+    filterProtection,
+    filterThreat,
+    filterCoverMin,
+    filterCoverMax,
+    activeFilterCount,
+    resetFilters,
     publicReefs,
     filtered,
     totalCount,
     totalArea,
     states,
     oceans,
+    protections,
+    threats,
     setReefs,
     findById,
     updateReef,

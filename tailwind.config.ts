@@ -1,6 +1,9 @@
 import type { Config } from 'tailwindcss'
 
 export default <Config>{
+  // `class` strategy: cuando @nuxtjs/color-mode (classSuffix: '') ponga
+  // `class="dark"` en <html>, todas las utilidades `dark:` se activan.
+  darkMode: 'class',
   content: [
     './components/**/*.{js,vue,ts}',
     './layouts/**/*.vue',

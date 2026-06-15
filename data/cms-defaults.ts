@@ -101,14 +101,28 @@ export const cmsDefaults: Record<string, Record<string, CmsItem[]>> = {
         eyebrow: 'Sobre el observatorio',
         title: 'Una plataforma viva, abierta y verificada',
         subtitle:
-          'Herramienta de monitoreo y memoria de los arrecifes coralinos de México. Combina satélites, datos abiertos y el conocimiento de quienes habitan la costa.',
+          'De los sensores a la política pública: monitoreo participativo y de alta frecuencia para la conservación de arrecifes.',
       },
     ],
     mission: [
       {
-        heading: '¿Por qué existe?',
+        heading: 'Misión',
         body:
-          'Los arrecifes coralinos mexicanos enfrentan presiones simultáneas: estrés térmico, blanqueamiento, sargazo, desarrollo costero, sobrepesca, derrames y enfermedades como SCTLD. La información existe pero está fragmentada entre dependencias, universidades y sensores satelitales. Este observatorio reúne esa información en un solo lugar y la pone al servicio de comunidades, tomadores de decisión y la ciudadanía.',
+          'Generar y comunicar evidencia científica y datos en tiempo real sobre el estado de los arrecifes de coral, para informar la toma de decisiones públicas, la gestión costera y la educación ambiental, con un enfoque en la reducción de brechas entre ciencia, política y comunidades locales.',
+      },
+    ],
+    vision: [
+      {
+        heading: 'Visión',
+        body:
+          'Ser un referente regional en el monitoreo participativo y de alta frecuencia de arrecifes, donde los datos abiertos, la colaboración interdisciplinaria y la incidencia en políticas públicas contribuyan a la resiliencia de los ecosistemas marinos frente al cambio global.',
+      },
+    ],
+    objective: [
+      {
+        heading: 'Objetivo',
+        body:
+          'Implementar y operar un sistema de monitoreo en tiempo real de variables clave del estado de arrecifes, integrando sensores remotos, datos satelitales y ciencia ciudadana, para proveer alertas tempranas, tendencias y recomendaciones de política a actores locales, nacionales e internacionales.',
       },
     ],
     inspirations: [
@@ -123,6 +137,27 @@ export const cmsDefaults: Record<string, Record<string, CmsItem[]>> = {
       { title: 'Fuentes institucionales mexicanas', description: 'CONANP, CONABIO, INEGI, SEMARNAT.' },
       { title: 'Aportes de la red', description: 'Validados por revisores con perfil verificado.' },
       { title: 'Prensa y comunicados', description: 'Solo como complemento, nunca como fuente primaria.' },
+    ],
+    team: [
+      {
+        name: 'Samantha L. Martínez Caballero',
+        role: 'Investigadora responsable · Bióloga marina',
+        credentials:
+          'Bióloga marina por la Universidad del Mar y Maestra en Ciencias en Estudios Ambientales y de Sustentabilidad por el IPN. Actualmente cursa el Doctorado en Ciencias en Estudios Ambientales y de Sustentabilidad en la misma institución.',
+        bio:
+          'Los arrecifes coralinos me enseñaron que la salud de un ecosistema no se puede separar de la vida de quienes lo habitan, tanto en el mundo submarino como en el terrestre. Mi investigación no solo mide corales: escucha comunidades, lee políticas públicas y dibuja mapas que cuentan historias de dependencia y esperanza como un todo: un sistema socioecológico.\n\nBusco generar evidencia disponible para todos que oriente decisiones hacia la sustentabilidad, porque la ciencia que no se comparte, no transforma. El análisis espacial es mi forma de traducir lo que sucede en el mundo marino en decisiones que lo protejan. Hago ciencia porque creo que aún estamos a tiempo de aprender a querer bonito a la mar.',
+      },
+    ],
+    mediaCoverageIntro: [
+      {
+        heading: 'En medios',
+        body: 'El trabajo del observatorio y su equipo ha sido difundido en medios especializados de ciencia y medio ambiente.',
+      },
+    ],
+    mediaCoverage: [
+      { label: 'Mongabay', href: 'https://es.mongabay.com' },
+      { label: 'Eos', href: 'https://eos.org' },
+      { label: 'The Conversation', href: 'https://theconversation.com' },
     ],
     reputationIntro: [
       {
@@ -277,6 +312,170 @@ export const cmsDefaults: Record<string, Record<string, CmsItem[]>> = {
     ],
   },
 
+  // ───────────────────────── SALUD HUB ─────────────────────────
+  salud: {
+    hero: [
+      {
+        eyebrow: 'Salud del arrecife',
+        title: 'Tablero integrado del estado del arrecife',
+        subtitle:
+          'Enfermedad, térmico, restauración, especies clave, invasoras y sargazo. Una sola lectura por arrecife, vinculada a la red y a recomendaciones de política.',
+      },
+    ],
+  },
+  'salud-sctld': {
+    hero: [
+      {
+        eyebrow: 'Enfermedad SCTLD',
+        title: 'Pérdida de tejido coralino — SCTLD',
+        subtitle:
+          'Reportes verificados de la enfermedad coralina más extensa documentada en el Caribe en décadas. Llegó a México por Cozumel en 2018 y está reescribiendo el SAM.',
+      },
+    ],
+  },
+  'salud-blanqueamiento': {
+    hero: [
+      {
+        eyebrow: 'Estrés térmico',
+        title: 'Vigilancia de blanqueamiento',
+        subtitle:
+          'DHW, SST y nivel de alerta NOAA Coral Reef Watch por arrecife mexicano. Actualización casi diaria a 5 km de resolución.',
+      },
+    ],
+  },
+  'salud-restauracion': {
+    hero: [
+      {
+        eyebrow: 'Restauración coralina',
+        title: 'Viveros y transplante en operación',
+        subtitle:
+          'Programas activos en CRC Cozumel, Oceanus AC, Xcalak, PNSAV, ECOSUR Chetumal, Cabo Pulmo y Huatulco. Métodos, especies, supervivencia.',
+      },
+    ],
+  },
+  'salud-especies': {
+    hero: [
+      {
+        eyebrow: 'Catálogo',
+        title: 'Especies clave del arrecife mexicano',
+        subtitle:
+          'Corales formadores, peces estructurantes y megafauna documentada con estatus IUCN, NOM-059 y rol ecológico.',
+      },
+    ],
+  },
+  'salud-invasoras': {
+    hero: [
+      {
+        eyebrow: 'Especies invasoras',
+        title: 'Control del pez león y otras invasoras',
+        subtitle:
+          'Densidad, capturas y esfuerzo de jornadas coordinadas por cooperativas pesqueras y CONANP en el Caribe mexicano.',
+      },
+    ],
+  },
+  'salud-sargazo': {
+    hero: [
+      {
+        eyebrow: 'Calidad de agua costera',
+        title: 'Sargazo: arribazón e impacto cruzado',
+        subtitle:
+          'Origen en el Atlántico ecuatorial, picos abril-agosto. Interacción con descargas residuales y efecto sobre cobertura coralina.',
+      },
+    ],
+  },
+
+  // ───────────────────────── POLÍTICA / CIENCIA ─────────────────────────
+  policy: {
+    hero: [
+      {
+        eyebrow: 'De los sensores a la política',
+        title: 'Policy briefs por arrecife',
+        subtitle:
+          'Documentos ejecutivos 2-3 páginas con problema, evidencia, recomendaciones priorizadas y actor responsable. Listos para enviarse y citarse.',
+      },
+    ],
+  },
+  protocolos: {
+    hero: [
+      {
+        eyebrow: 'Guías y protocolos',
+        title: 'Cómo monitorear el arrecife',
+        subtitle:
+          'CoralWatch, AGRRA, BleachWatch y protocolos locales: descarga y úsalos en campo. Pensado para buzos, pescadoras, comunidades y equipos académicos.',
+      },
+    ],
+  },
+  citar: {
+    hero: [
+      {
+        eyebrow: 'Cómo citar',
+        title: 'Reproducible, abierto, citable',
+        subtitle:
+          'APA y BibTeX listos para copiar. Cada policy brief y capa preserva su cita original; aquí está la del observatorio como compilador.',
+      },
+    ],
+  },
+  calendario: {
+    hero: [
+      {
+        eyebrow: 'Eventos vivos',
+        title: 'Campañas, torneos, talleres y ferias',
+        subtitle:
+          'Monitoreos coordinados, capacitación, restauración, control de pez león y eventos públicos del observatorio y sus aliados.',
+      },
+    ],
+  },
+  fenologia: {
+    hero: [
+      {
+        eyebrow: 'Calendario fenológico',
+        title: 'Cuándo pasa qué en el arrecife',
+        subtitle:
+          'Desoves, agregaciones de mero, anidación de tortugas, ventana de blanqueamiento y picos de sargazo. La rueda del año marítimo mexicano.',
+      },
+    ],
+  },
+  comparador: {
+    hero: [
+      {
+        eyebrow: 'Comparador',
+        title: 'Hasta tres arrecifes lado a lado',
+        subtitle:
+          'Cobertura coral, superficie, profundidad, protección, especies, restauración y presión acumulada. Para identificar diferencias o paralelos.',
+      },
+    ],
+  },
+  presiones: {
+    hero: [
+      {
+        eyebrow: 'Índice multi-amenaza',
+        title: 'Presiones acumuladas por arrecife',
+        subtitle:
+          'Ocho dimensiones (térmico, enfermedad, pesca, turismo, desarrollo, sargazo, contaminación, huracanes) en un sólo ranking nacional, estilo Halpern et al.',
+      },
+    ],
+  },
+  huracanes: {
+    hero: [
+      {
+        eyebrow: 'Memoria del impacto',
+        title: 'Huracanes que reescribieron arrecifes',
+        subtitle:
+          'Gilbert (1988), Wilma (2005), Dean (2007), Patricia (2015), Delta (2020) y otros. Trayectorias, sitios golpeados y tiempos de recuperación documentados.',
+      },
+    ],
+  },
+  historias: {
+    hero: [
+      {
+        eyebrow: 'Storytelling',
+        title: 'Historias guiadas del arrecife mexicano',
+        subtitle:
+          'Casos narrados con datos, mapas y voces de comunidad. SCTLD en Cozumel, recuperación de Cabo Pulmo, deuda del saneamiento en Riviera Maya.',
+      },
+    ],
+  },
+
   // ───────────────────────── FOOTER ─────────────────────────
   footer: {
     brand: [
@@ -359,10 +558,15 @@ export const cmsPageCatalog: CmsPageMeta[] = [
     preview: '/about',
     icon: 'lucide:info',
     sections: [
-      { key: 'hero', label: 'Hero' },
-      { key: 'mission', label: 'Misión (¿Por qué existe?)' },
+      { key: 'hero', label: 'Hero', help: 'Encabezado de la página. El subtítulo se usa como slogan principal del observatorio.' },
+      { key: 'mission', label: 'Misión' },
+      { key: 'vision', label: 'Visión' },
+      { key: 'objective', label: 'Objetivo' },
       { key: 'inspirations', label: 'Inspiraciones', help: 'Lista de proyectos que inspiran la plataforma.' },
       { key: 'sources', label: 'Jerarquía de fuentes', help: 'Lista numerada del 1 al 5.' },
+      { key: 'team', label: 'Equipo', help: 'Bios del equipo del observatorio. Una persona por bloque.' },
+      { key: 'mediaCoverageIntro', label: 'En medios (intro)', help: 'Encabezado y texto introductorio del bloque de menciones en prensa.' },
+      { key: 'mediaCoverage', label: 'En medios (lista)', help: 'Medios donde se ha cubierto el observatorio. Un enlace por bloque.' },
       { key: 'reputationIntro', label: 'Sistema de reputación (intro)', help: 'Texto antes de la tabla de tiers (la tabla se gestiona desde /admin/tiers).' },
       { key: 'validation', label: 'Cómo se valida un aporte', help: 'Pasos del workflow de validación.' },
       { key: 'licenses', label: 'Licencias y atribución' },
@@ -444,6 +648,23 @@ export const cmsPageCatalog: CmsPageMeta[] = [
       { key: 'hero', label: 'Hero' },
     ],
   },
+  // ── Salud + ciencia/política — sólo hero en cada uno (resto es data viva) ──
+  { slug: 'salud', title: 'Salud (hub)', description: 'Hero del tablero general de salud del arrecife.', preview: '/salud', icon: 'lucide:heart-pulse', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'salud-sctld', title: 'Salud · SCTLD', description: 'Hero del tablero SCTLD.', preview: '/salud/sctld', icon: 'lucide:biohazard', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'salud-blanqueamiento', title: 'Salud · Blanqueamiento', description: 'Hero del tablero NOAA CRW.', preview: '/salud/blanqueamiento', icon: 'lucide:thermometer-sun', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'salud-restauracion', title: 'Salud · Restauración', description: 'Hero del listado de sitios de restauración.', preview: '/salud/restauracion', icon: 'lucide:sprout', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'salud-especies', title: 'Salud · Especies', description: 'Hero del catálogo de especies.', preview: '/salud/especies', icon: 'lucide:fish', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'salud-invasoras', title: 'Salud · Invasoras', description: 'Hero del tablero de pez león.', preview: '/salud/invasoras', icon: 'lucide:swords', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'salud-sargazo', title: 'Salud · Sargazo', description: 'Hero del panel de sargazo.', preview: '/salud/sargazo', icon: 'lucide:leaf', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'policy', title: 'Policy briefs', description: 'Hero del listado de briefs de política.', preview: '/policy', icon: 'lucide:file-text', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'protocolos', title: 'Protocolos', description: 'Hero de la biblioteca de protocolos.', preview: '/protocolos', icon: 'lucide:book-open-check', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'citar', title: 'Cómo citar', description: 'Hero de la página de citación.', preview: '/citar', icon: 'lucide:quote', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'calendario', title: 'Calendario de eventos', description: 'Hero del calendario de campañas.', preview: '/calendario', icon: 'lucide:calendar-check', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'fenologia', title: 'Calendario fenológico', description: 'Hero del calendario fenológico.', preview: '/fenologia', icon: 'lucide:calendar-days', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'comparador', title: 'Comparador', description: 'Hero del comparador de arrecifes.', preview: '/comparador', icon: 'lucide:scale', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'presiones', title: 'Presiones acumuladas', description: 'Hero del índice multi-amenaza.', preview: '/presiones', icon: 'lucide:layers-3', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'huracanes', title: 'Huracanes', description: 'Hero del registro de huracanes.', preview: '/huracanes', icon: 'lucide:tornado', sections: [{ key: 'hero', label: 'Hero' }] },
+  { slug: 'historias', title: 'Historias guiadas', description: 'Hero del índice de story maps.', preview: '/historias', icon: 'lucide:book-open', sections: [{ key: 'hero', label: 'Hero' }] },
   {
     slug: 'footer',
     title: 'Pie de página',
@@ -483,6 +704,10 @@ export const cmsFieldLabels: Record<string, string> = {
   href: 'URL externa',
   to: 'Ruta interna',
   copyright: 'Texto de copyright',
+  name: 'Nombre',
+  role: 'Rol / cargo',
+  credentials: 'Formación académica',
+  bio: 'Bio personal',
 }
 
 // Campos que se renderizan como textarea (multi-línea).
@@ -490,6 +715,8 @@ export const cmsLongTextFields = new Set<string>([
   'subtitle',
   'description',
   'body',
+  'credentials',
+  'bio',
 ])
 
 // Campos cuyo "valor" es una clase tailwind / token de color.

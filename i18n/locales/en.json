@@ -10,11 +10,21 @@
     "livemap": "Live map",
     "inventory": "Reefs",
     "atlas": "Atlas",
+    "health": "Reef health",
     "dataSources": "Data",
     "contributors": "Community",
     "observations": "Observations",
     "news": "News",
-    "about": "About"
+    "about": "About",
+    "policy": "Policy briefs",
+    "stories": "Stories",
+    "comparator": "Compare",
+    "pressures": "Pressures",
+    "hurricanes": "Hurricanes",
+    "phenology": "Phenology",
+    "events": "Events",
+    "protocols": "Protocols",
+    "cite": "Cite"
   },
   "footer": {
     "tagline": "Living monitoring platform for Mexican coral reefs",

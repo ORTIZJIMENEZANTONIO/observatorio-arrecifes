@@ -246,12 +246,22 @@ const navLinks = computed(() => [
   { to: "/livemap", label: t("nav.livemap"), icon: "lucide:globe" },
   { to: "/inventory", label: t("nav.inventory"), icon: "lucide:list" },
   { to: "/atlas", label: t("nav.atlas"), icon: "lucide:alert-triangle" },
+  { to: "/salud", label: t("nav.health"), icon: "lucide:heart-pulse" },
   { to: "/data-sources", label: t("nav.dataSources"), icon: "lucide:database" },
   { to: "/contributors", label: t("nav.contributors"), icon: "lucide:users" },
   { to: "/noticias", label: t("nav.news"), icon: "lucide:newspaper" },
 ]);
 const secondaryLinks = computed(() => [
   { to: "/observations", label: t("nav.observations"), icon: "lucide:camera" },
+  { to: "/policy", label: t("nav.policy"), icon: "lucide:file-text" },
+  { to: "/historias", label: t("nav.stories"), icon: "lucide:book-open" },
+  { to: "/comparador", label: t("nav.comparator"), icon: "lucide:scale" },
+  { to: "/presiones", label: t("nav.pressures"), icon: "lucide:layers-3" },
+  { to: "/huracanes", label: t("nav.hurricanes"), icon: "lucide:tornado" },
+  { to: "/fenologia", label: t("nav.phenology"), icon: "lucide:calendar-days" },
+  { to: "/calendario", label: t("nav.events"), icon: "lucide:calendar-check" },
+  { to: "/protocolos", label: t("nav.protocols"), icon: "lucide:book-open-check" },
+  { to: "/citar", label: t("nav.cite"), icon: "lucide:quote" },
 ]);
 
 const route = useRoute();

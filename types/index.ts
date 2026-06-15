@@ -209,6 +209,10 @@ export type ObservationStatus = 'pending' | 'in_review' | 'validated' | 'rejecte
 export interface Observation {
   id: number
   reefId?: number                       // optional link to known reef
+  // Si el colaborador eligió "Otro" en el formulario (el sitio aún no está en
+  // el catálogo de arrecifes), guardamos aquí el nombre que escribió para que
+  // el revisor pueda crear el arrecife después y vincular `reefId`.
+  customReefName?: string
   type: ObservationType
   title: string
   description: string
@@ -468,6 +472,335 @@ export interface CoastalIntrusionNoveltyBatch {
   failed: number
   results: Array<{ id: number; ok: boolean; score?: number; error?: string }>
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// MÓDULO BIOLOGÍA · v2 — especies, enfermedades, restauración, invasoras
+// ════════════════════════════════════════════════════════════════════════════
+
+// IUCN Red List
+export type IucnStatus = 'LC' | 'NT' | 'VU' | 'EN' | 'CR' | 'EW' | 'EX' | 'DD'
+// NOM-059-SEMARNAT-2010: A=amenazada, Pr=protección especial, P=peligro de
+// extinción, E=probablemente extinta, none=sin categoría
+export type Nom059Status = 'A' | 'Pr' | 'P' | 'E' | 'none'
+
+export type SpeciesKingdom =
+  | 'cnidaria'        // corales, anémonas
+  | 'fish'
+  | 'crustacean'
+  | 'mollusk'
+  | 'echinoderm'      // erizos, estrellas, pepinos
+  | 'algae'
+  | 'reptile'         // tortugas
+  | 'mammal'
+  | 'plant'           // pastos marinos, manglares
+
+export interface Species {
+  id: number
+  scientificName: string                // formato italic en UI
+  commonName: string                    // es-MX
+  kingdom: SpeciesKingdom
+  reefIds: number[]                     // dónde está documentada
+  iucnStatus: IucnStatus
+  nom059Status: Nom059Status
+  endemic: boolean                      // endémica del Pacífico/Caribe mexicano
+  isKeystone: boolean                   // especie clave del ecosistema
+  description: string
+  threats: ThreatType[]
+  habitat: string                       // hábitat preferido en lenguaje accesible
+  depthRange?: [number, number]         // m
+  hero?: string                         // imagen
+  imageCredit?: string
+  obisId?: string                       // OBIS scientificNameID
+  gbifKey?: number                      // GBIF taxon key
+  wormsAphiaId?: number                 // WoRMS AphiaID
+  visible?: boolean
+  archived?: boolean
+}
+
+// ── SCTLD / enfermedades coralinas ─────────────────────────────────────────
+export type DiseaseAgent =
+  | 'sctld'                             // Stony Coral Tissue Loss Disease
+  | 'white_band'
+  | 'white_plague'
+  | 'black_band'
+  | 'yellow_band'
+  | 'dark_spot'
+  | 'unknown'
+
+export type DiseaseSeverity =
+  | 'no_signs'
+  | 'incipient'                         // <5% colonias afectadas
+  | 'progressing'                       // 5-25%
+  | 'advanced'                          // 25-60%
+  | 'epidemic'                          // >60%
+  | 'recovering'
+
+export type DiseaseIntervention =
+  | 'amoxicillin_paste'                 // Base 2B + amoxicilina (CDC protocol)
+  | 'chlorinated_paste'
+  | 'ablation'                          // remoción de tejido enfermo
+  | 'monitoring_only'
+  | 'fragment_rescue'                   // mover fragmentos sanos a viveros
+
+export interface DiseaseReport {
+  id: number
+  reefId: number
+  agent: DiseaseAgent
+  speciesAffected: string[]             // scientificName[]
+  severity: DiseaseSeverity
+  prevalence: number                    // % de colonias afectadas (0-100)
+  surveyMethod?: 'belt_transect' | 'roving' | 'photoquadrat' | 'citizen_report'
+  interventions: DiseaseIntervention[]
+  interventionTeam?: string             // ej. "CRC Cozumel + CONANP"
+  observedAt: string                    // ISO date
+  contributorId?: number
+  lat?: number
+  lng?: number
+  depth?: number                        // m
+  notes?: string
+  photoUrls?: string[]
+  visible?: boolean
+  archived?: boolean
+}
+
+// ── Especies invasoras (pez león, etc.) ────────────────────────────────────
+export type InvasiveSpecies =
+  | 'pterois_volitans'                  // pez león indo-pacífico
+  | 'pterois_miles'                     // pez león
+  | 'tubastraea_coccinea'               // coral sol invasor (Pacífico)
+  | 'other'
+
+export interface InvasiveReport {
+  id: number
+  reefId: number
+  species: InvasiveSpecies
+  count: number                         // observados
+  captured: number                      // removidos
+  effortHours?: number                  // esfuerzo de pesca/buceo
+  averageSize?: number                  // cm longitud total
+  observedAt: string
+  team?: string                         // cooperativa / torneo
+  contributorId?: number
+  notes?: string
+  visible?: boolean
+  archived?: boolean
+}
+
+// ── Restauración coralina ──────────────────────────────────────────────────
+export type RestorationMethod =
+  | 'coral_garden'                      // viveros suspendidos
+  | 'micro_fragmentation'               // SECORE / Mote
+  | 'larval_propagation'                // crianza sexual
+  | 'outplanting'                       // transplante a sustrato
+  | 'reef_balls'                        // estructuras artificiales
+  | 'substrate_consolidation'
+
+export interface RestorationSite {
+  id: number
+  name: string
+  reefId: number
+  institution: string                   // CRC Cozumel, Oceanus AC, ICMyL-UNAM…
+  speciesProduced: string[]             // scientificName[]
+  methodsUsed: RestorationMethod[]
+  startedAt: string                     // YYYY-MM-DD
+  fragmentsProduced: number             // acumulado total
+  outplanted: number                    // acumulado transplantado
+  survivalRate: number                  // % a 1 año
+  active: boolean
+  contactEmail?: string
+  websiteUrl?: string
+  notes?: string
+  lat?: number
+  lng?: number
+  visible?: boolean
+  archived?: boolean
+}
+
+// ── Fenología (eventos cíclicos) ───────────────────────────────────────────
+export type PhenologyEventType =
+  | 'coral_spawning'                    // desove masivo
+  | 'fish_aggregation'                  // agregaciones reproductivas (mero, robalo)
+  | 'turtle_nesting'
+  | 'sargasso_peak'                     // pico de arribazón
+  | 'bleaching_season'                  // ventana climatológica de blanqueamiento
+  | 'lionfish_tournament'               // torneos de control
+  | 'whale_shark'                       // agregación tiburón ballena (Isla Mujeres)
+  | 'monitoring_campaign'               // PMARP, REA, MBRS-HRI
+
+export interface PhenologyEvent {
+  id: number
+  type: PhenologyEventType
+  title: string                         // es-MX
+  description: string
+  reefIds: number[]
+  ocean: Ocean | 'all'
+  startMonth: number                    // 1-12
+  endMonth: number
+  peakMonth?: number
+  speciesInvolved?: string[]
+  source?: string                       // referencia académica
+  visible?: boolean
+}
+
+// ── Huracanes históricos ───────────────────────────────────────────────────
+export interface HurricaneTrack {
+  id: number
+  name: string                          // ej. "Wilma"
+  year: number
+  basin: 'atlantic' | 'pacific'
+  maxCategory: number                   // 1-5 Saffir-Simpson
+  landfallDate?: string                 // YYYY-MM-DD
+  affectedReefIds: number[]
+  trackPoints: { lat: number; lng: number; date: string; category: number }[]
+  damageSummary?: string                // ¿qué le pasó a los arrecifes?
+  recoveryYears?: number                // estimado de recuperación
+  source: string                        // NOAA HURDAT2, IBTrACS
+  visible?: boolean
+}
+
+// ── Policy briefs (ciencia → política) ─────────────────────────────────────
+export type PolicyAudience =
+  | 'conanp'
+  | 'semarnat'
+  | 'sader_conapesca'
+  | 'sectur'
+  | 'state_government'
+  | 'municipal'
+  | 'congress'
+  | 'community'
+  | 'public'
+
+export type PolicyStatus = 'draft' | 'published' | 'urgent' | 'adopted' | 'archived'
+
+export interface PolicyBrief {
+  id: number
+  title: string
+  slug: string
+  reefIds: number[]
+  audience: PolicyAudience[]
+  summary: string                       // 2-3 oraciones ejecutivas
+  problem: string                       // el qué
+  evidence: string[]                    // bullets con datos
+  recommendations: string[]             // acciones priorizadas
+  responsibleActor: string              // CONANP, municipio, etc.
+  timeframe?: string                    // "30 días", "ciclo presupuestal 2027"
+  status: PolicyStatus
+  pdfUrl?: string
+  doi?: string
+  publishedAt: string                   // YYYY-MM-DD
+  authors: string[]
+  citation?: string                     // texto APA listo para copiar
+  visible?: boolean
+  archived?: boolean
+}
+
+// ── Protocolos / guías descargables ────────────────────────────────────────
+export type ProtocolFormat = 'pdf' | 'video' | 'webform' | 'card' | 'manual'
+export type ProtocolTopic =
+  | 'bleaching'                         // CoralWatch colorímetro
+  | 'sctld'
+  | 'lionfish'
+  | 'sargasso'
+  | 'transect'                          // AGRRA / REA
+  | 'photoquadrat'
+  | 'identification'                    // ID de especies
+  | 'water_quality'
+  | 'ethics'
+export type ProtocolLevel = 'principiante' | 'intermedio' | 'avanzado'
+
+export interface Protocol {
+  id: number
+  title: string
+  description: string
+  format: ProtocolFormat
+  topic: ProtocolTopic
+  level: ProtocolLevel
+  fileUrl?: string                      // PDF principal
+  estimatedTime?: string                // "15 min", "1 día"
+  audience: ContributorRole[]           // a quién va dirigida
+  authors?: string[]
+  language?: 'es' | 'en' | 'bilingual'
+  source?: string                       // CoralWatch, AGRRA, NOAA…
+  thumbnail?: string
+  visible?: boolean
+  archived?: boolean
+}
+
+// ── Calendario de campañas y eventos ───────────────────────────────────────
+export type CampaignType =
+  | 'monitoring'                        // campaña de monitoreo
+  | 'training'                          // capacitación
+  | 'restoration'                       // jornada de restauración
+  | 'cleanup'                           // limpieza costera
+  | 'tournament'                        // torneo control pez león
+  | 'science_fair'
+  | 'public_lecture'
+  | 'public_event'                      // festival, conmemoración
+  | 'workshop'
+
+export interface CampaignEvent {
+  id: number
+  title: string
+  description: string
+  type: CampaignType
+  startDate: string                     // YYYY-MM-DD
+  endDate?: string
+  location: string                      // legible
+  reefIds: number[]
+  organizer: string
+  registrationUrl?: string
+  contactEmail?: string
+  capacity?: number
+  cost?: string                         // "gratis", "$500 MXN"
+  visible?: boolean
+}
+
+// ── Índice multi-amenaza (estilo Halpern et al.) ───────────────────────────
+export interface PressureIndex {
+  reefId: number
+  thermal: number                       // 0-100
+  disease: number
+  fishing: number
+  tourism: number
+  development: number
+  sargasso: number
+  pollution: number
+  hurricane: number
+  total: number                         // promedio ponderado
+  trend: 'improving' | 'stable' | 'worsening'
+  updatedAt: string
+}
+
+// ── Story maps (narrativa guiada por caso) ─────────────────────────────────
+export interface StoryMapSection {
+  heading: string
+  body: string
+  image?: string
+  imageCredit?: string
+  reefIds?: number[]                    // si la sección hace zoom a sitios
+  layers?: string[]                     // slugs de DataLayer a activar
+  // Año/era para la sección (para slider temporal del story map).
+  year?: number
+}
+
+export interface StoryMap {
+  id: number
+  slug: string
+  title: string
+  subtitle: string
+  cover?: string
+  coverCredit?: string
+  authors: string[]
+  publishedAt: string
+  estimatedMinutes: number
+  topic: 'sctld' | 'bleaching' | 'restoration' | 'conflict' | 'community' | 'policy'
+  reefIds: number[]
+  sections: StoryMapSection[]
+  visible?: boolean
+  archived?: boolean
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 
 export interface CoastalIntrusionRunResult {
   startedAt: string

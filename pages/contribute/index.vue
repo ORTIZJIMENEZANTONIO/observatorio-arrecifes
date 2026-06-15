@@ -65,11 +65,29 @@
               </div>
               <div class="form-group">
                 <label class="form-label">Arrecife (opcional)</label>
-                <select v-model="form.reefId" class="select">
-                  <option :value="undefined">— Ninguno —</option>
-                  <option v-for="r in reefsStore.publicReefs" :key="r.id" :value="r.id">{{ r.name }}</option>
+                <select v-model="reefSelection" class="select">
+                  <option value="none">— Ninguno —</option>
+                  <option v-for="r in reefsStore.publicReefs" :key="r.id" :value="String(r.id)">{{ r.name }}</option>
+                  <option value="other">Otro — no está en la lista</option>
                 </select>
               </div>
+            </div>
+
+            <div v-if="reefSelection === 'other'" class="form-group rounded-xl border border-primary/20 bg-primary-50/40 p-4">
+              <label class="form-label">
+                Nombre del sitio o arrecife <span class="text-alert">*</span>
+              </label>
+              <input
+                v-model="customReefName"
+                type="text"
+                required
+                class="input"
+                placeholder="Ej. Bajo Pepito, Cabezas de Cuajiniquilapa, Punta Soliman..."
+              />
+              <p class="form-hint">
+                Si el sitio aún no está catalogado, escríbelo como lo conoces localmente. El equipo
+                de revisión podrá crearlo en el inventario al validar tu aporte.
+              </p>
             </div>
 
             <div class="form-group">
@@ -144,8 +162,11 @@ const form = reactive({
   lat: undefined as number | undefined,
   lng: undefined as number | undefined,
   capturedAt: '',
-  reefId: undefined as number | undefined,
 })
+// El select usa string para distinguir 'none' / 'other' / id-numérico, y se
+// resuelve a `reefId` + `customReefName` en el submit.
+const reefSelection = ref<'none' | 'other' | string>('none')
+const customReefName = ref('')
 const tagInput = ref('')
 const submitted = ref<number | null>(null)
 
@@ -158,6 +179,13 @@ const tags = computed(() =>
 
 const submit = () => {
   if (!form.type || !form.title || !form.description || form.lat == null || form.lng == null || !form.capturedAt) return
+  if (reefSelection.value === 'other' && !customReefName.value.trim()) return
+  const reefId =
+    reefSelection.value === 'none' || reefSelection.value === 'other'
+      ? undefined
+      : Number(reefSelection.value)
+  const customName =
+    reefSelection.value === 'other' ? customReefName.value.trim() : undefined
   const id = obsStore.submit({
     type: form.type as ObservationType,
     title: form.title,
@@ -165,7 +193,8 @@ const submit = () => {
     lat: form.lat,
     lng: form.lng,
     capturedAt: form.capturedAt,
-    reefId: form.reefId,
+    reefId,
+    customReefName: customName,
     contributorId: 0, // anonymous until logged in
     attachments: [],
     tags: tags.value,
@@ -181,7 +210,8 @@ const resetForm = (clearStatus = true) => {
   form.lat = undefined
   form.lng = undefined
   form.capturedAt = ''
-  form.reefId = undefined
+  reefSelection.value = 'none'
+  customReefName.value = ''
   tagInput.value = ''
   if (clearStatus) submitted.value = null
 }

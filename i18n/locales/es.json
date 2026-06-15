@@ -10,11 +10,21 @@
     "livemap": "Mapa vivo",
     "inventory": "Arrecifes",
     "atlas": "Atlas",
+    "health": "Salud",
     "dataSources": "Datos",
     "contributors": "Comunidad",
     "observations": "Observaciones",
     "news": "Noticias",
-    "about": "Sobre"
+    "about": "Sobre",
+    "policy": "Briefs de política",
+    "stories": "Historias",
+    "comparator": "Comparador",
+    "pressures": "Presiones",
+    "hurricanes": "Huracanes",
+    "phenology": "Calendario fenológico",
+    "events": "Eventos",
+    "protocols": "Protocolos",
+    "cite": "Cómo citar"
   },
   "footer": {
     "tagline": "Plataforma viva de monitoreo de arrecifes coralinos mexicanos",

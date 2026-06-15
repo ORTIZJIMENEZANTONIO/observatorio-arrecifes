@@ -8,6 +8,19 @@ import type {
   ConflictStatus,
   ProtectionStatus,
   ThreatType,
+  IucnStatus,
+  Nom059Status,
+  SpeciesKingdom,
+  DiseaseSeverity,
+  DiseaseAgent,
+  RestorationMethod,
+  PolicyStatus,
+  PolicyAudience,
+  InvasiveSpecies,
+  PhenologyEventType,
+  CampaignType,
+  ProtocolTopic,
+  ProtocolLevel,
 } from '~/types'
 
 export const useFormatters = () => {
@@ -237,6 +250,239 @@ export const useFormatters = () => {
     return map[color] ?? 'bg-gray-100'
   }
 
+  // ── v2: módulo biología, política y campañas ─────────────────────────────
+  const formatIucn = (s: IucnStatus): string => {
+    const map: Record<IucnStatus, string> = {
+      LC: 'Preocupación menor',
+      NT: 'Casi amenazada',
+      VU: 'Vulnerable',
+      EN: 'En peligro',
+      CR: 'En peligro crítico',
+      EW: 'Extinta en estado silvestre',
+      EX: 'Extinta',
+      DD: 'Datos insuficientes',
+    }
+    return map[s] ?? s
+  }
+
+  const iucnBadgeClass = (s: IucnStatus): string => {
+    const map: Record<IucnStatus, string> = {
+      LC: 'bg-eco/10 text-eco-dark',
+      NT: 'bg-secondary/10 text-secondary-dark',
+      VU: 'bg-accent/10 text-accent-dark',
+      EN: 'bg-coral/15 text-coral-dark',
+      CR: 'bg-alert/10 text-alert-dark',
+      EW: 'bg-alert/15 text-alert-dark',
+      EX: 'bg-gray-200 text-ink',
+      DD: 'bg-gray-100 text-ink-muted',
+    }
+    return map[s] ?? 'bg-gray-100 text-ink-muted'
+  }
+
+  const formatNom059 = (s: Nom059Status): string => {
+    const map: Record<Nom059Status, string> = {
+      A: 'Amenazada',
+      Pr: 'Protección especial',
+      P: 'En peligro de extinción',
+      E: 'Probablemente extinta',
+      none: 'Sin categoría',
+    }
+    return map[s] ?? s
+  }
+
+  const formatKingdom = (k: SpeciesKingdom): string => {
+    const map: Record<SpeciesKingdom, string> = {
+      cnidaria: 'Cnidario',
+      fish: 'Pez',
+      crustacean: 'Crustáceo',
+      mollusk: 'Molusco',
+      echinoderm: 'Equinodermo',
+      algae: 'Alga',
+      reptile: 'Reptil',
+      mammal: 'Mamífero',
+      plant: 'Planta',
+    }
+    return map[k] ?? k
+  }
+
+  const kingdomIcon = (k: SpeciesKingdom): string => {
+    const map: Record<SpeciesKingdom, string> = {
+      cnidaria: 'lucide:flower',
+      fish: 'lucide:fish',
+      crustacean: 'lucide:bug',
+      mollusk: 'lucide:shell',
+      echinoderm: 'lucide:asterisk',
+      algae: 'lucide:leaf',
+      reptile: 'lucide:turtle',
+      mammal: 'lucide:rabbit',
+      plant: 'lucide:sprout',
+    }
+    return map[k] ?? 'lucide:circle'
+  }
+
+  const formatDiseaseSeverity = (s: DiseaseSeverity): string => {
+    const map: Record<DiseaseSeverity, string> = {
+      no_signs: 'Sin signos',
+      incipient: 'Incipiente (<5%)',
+      progressing: 'Progresando (5–25%)',
+      advanced: 'Avanzada (25–60%)',
+      epidemic: 'Epidémica (>60%)',
+      recovering: 'En recuperación',
+    }
+    return map[s] ?? s
+  }
+
+  const diseaseSeverityBadgeClass = (s: DiseaseSeverity): string => {
+    const map: Record<DiseaseSeverity, string> = {
+      no_signs: 'bg-eco/10 text-eco-dark',
+      incipient: 'bg-secondary/10 text-secondary-dark',
+      progressing: 'bg-accent/10 text-accent-dark',
+      advanced: 'bg-coral/15 text-coral-dark',
+      epidemic: 'bg-alert/10 text-alert-dark',
+      recovering: 'bg-primary-50 text-primary',
+    }
+    return map[s] ?? 'bg-gray-100 text-ink-muted'
+  }
+
+  const formatDiseaseAgent = (a: DiseaseAgent): string => {
+    const map: Record<DiseaseAgent, string> = {
+      sctld: 'SCTLD',
+      white_band: 'Banda blanca',
+      white_plague: 'Plaga blanca',
+      black_band: 'Banda negra',
+      yellow_band: 'Banda amarilla',
+      dark_spot: 'Mancha oscura',
+      unknown: 'Sin identificar',
+    }
+    return map[a] ?? a
+  }
+
+  const formatRestorationMethod = (m: RestorationMethod): string => {
+    const map: Record<RestorationMethod, string> = {
+      coral_garden: 'Vivero suspendido',
+      micro_fragmentation: 'Micro-fragmentación',
+      larval_propagation: 'Crianza sexual',
+      outplanting: 'Transplante',
+      reef_balls: 'Estructuras artificiales',
+      substrate_consolidation: 'Consolidación de sustrato',
+    }
+    return map[m] ?? m
+  }
+
+  const formatPolicyStatus = (s: PolicyStatus): string => {
+    const map: Record<PolicyStatus, string> = {
+      draft: 'Borrador',
+      published: 'Publicado',
+      urgent: 'Urgente',
+      adopted: 'Adoptado',
+      archived: 'Archivado',
+    }
+    return map[s] ?? s
+  }
+
+  const policyStatusBadgeClass = (s: PolicyStatus): string => {
+    const map: Record<PolicyStatus, string> = {
+      draft: 'bg-gray-100 text-ink-muted',
+      published: 'bg-primary-50 text-primary',
+      urgent: 'bg-alert/10 text-alert-dark',
+      adopted: 'bg-eco/10 text-eco-dark',
+      archived: 'bg-gray-100 text-ink-muted',
+    }
+    return map[s] ?? 'bg-gray-100 text-ink-muted'
+  }
+
+  const formatAudience = (a: PolicyAudience): string => {
+    const map: Record<PolicyAudience, string> = {
+      conanp: 'CONANP',
+      semarnat: 'SEMARNAT',
+      sader_conapesca: 'SADER / CONAPESCA',
+      sectur: 'SECTUR',
+      state_government: 'Gobierno estatal',
+      municipal: 'Municipio',
+      congress: 'Congreso',
+      community: 'Comunidad',
+      public: 'Público general',
+    }
+    return map[a] ?? a
+  }
+
+  const formatInvasiveSpecies = (s: InvasiveSpecies): string => {
+    const map: Record<InvasiveSpecies, string> = {
+      pterois_volitans: 'Pez león (Pterois volitans)',
+      pterois_miles: 'Pez león (Pterois miles)',
+      tubastraea_coccinea: 'Coral sol (Tubastraea coccinea)',
+      other: 'Otra',
+    }
+    return map[s] ?? s
+  }
+
+  const formatPhenologyType = (t: PhenologyEventType): string => {
+    const map: Record<PhenologyEventType, string> = {
+      coral_spawning: 'Desove coralino',
+      fish_aggregation: 'Agregación de peces',
+      turtle_nesting: 'Anidación de tortugas',
+      sargasso_peak: 'Pico de sargazo',
+      bleaching_season: 'Ventana de blanqueamiento',
+      lionfish_tournament: 'Torneo de pez león',
+      whale_shark: 'Tiburón ballena',
+      monitoring_campaign: 'Campaña de monitoreo',
+    }
+    return map[t] ?? t
+  }
+
+  const phenologyIcon = (t: PhenologyEventType): string => {
+    const map: Record<PhenologyEventType, string> = {
+      coral_spawning: 'lucide:sparkles',
+      fish_aggregation: 'lucide:fish',
+      turtle_nesting: 'lucide:turtle',
+      sargasso_peak: 'lucide:leaf',
+      bleaching_season: 'lucide:thermometer-sun',
+      lionfish_tournament: 'lucide:swords',
+      whale_shark: 'lucide:waves',
+      monitoring_campaign: 'lucide:clipboard-list',
+    }
+    return map[t] ?? 'lucide:calendar'
+  }
+
+  const formatCampaignType = (t: CampaignType): string => {
+    const map: Record<CampaignType, string> = {
+      monitoring: 'Monitoreo',
+      training: 'Capacitación',
+      restoration: 'Restauración',
+      cleanup: 'Limpieza',
+      tournament: 'Torneo',
+      science_fair: 'Feria científica',
+      public_lecture: 'Conferencia',
+      public_event: 'Evento público',
+      workshop: 'Taller',
+    }
+    return map[t] ?? t
+  }
+
+  const formatProtocolTopic = (t: ProtocolTopic): string => {
+    const map: Record<ProtocolTopic, string> = {
+      bleaching: 'Blanqueamiento',
+      sctld: 'Enfermedad SCTLD',
+      lionfish: 'Pez león',
+      sargasso: 'Sargazo',
+      transect: 'Transecto',
+      photoquadrat: 'Foto-cuadrante',
+      identification: 'Identificación',
+      water_quality: 'Calidad del agua',
+      ethics: 'Ética',
+    }
+    return map[t] ?? t
+  }
+
+  const formatProtocolLevel = (l: ProtocolLevel): string => {
+    const map: Record<ProtocolLevel, string> = {
+      principiante: 'Principiante',
+      intermedio: 'Intermedio',
+      avanzado: 'Avanzado',
+    }
+    return map[l] ?? l
+  }
+
   return {
     formatNumber,
     formatHectares,
@@ -259,5 +505,23 @@ export const useFormatters = () => {
     formatThreat,
     kpiColor,
     kpiIconBg,
+    formatIucn,
+    iucnBadgeClass,
+    formatNom059,
+    formatKingdom,
+    kingdomIcon,
+    formatDiseaseSeverity,
+    diseaseSeverityBadgeClass,
+    formatDiseaseAgent,
+    formatRestorationMethod,
+    formatPolicyStatus,
+    policyStatusBadgeClass,
+    formatAudience,
+    formatInvasiveSpecies,
+    formatPhenologyType,
+    phenologyIcon,
+    formatCampaignType,
+    formatProtocolTopic,
+    formatProtocolLevel,
   }
 }

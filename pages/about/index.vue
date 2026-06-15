@@ -16,6 +16,12 @@
           <h2 v-if="mission" id="mission" class="text-2xl font-bold text-ink">{{ mission.heading }}</h2>
           <p v-if="mission" class="whitespace-pre-line text-base text-slate-custom">{{ mission.body }}</p>
 
+          <h2 v-if="vision" id="vision" class="mt-10 text-2xl font-bold text-ink">{{ vision.heading }}</h2>
+          <p v-if="vision" class="whitespace-pre-line text-base text-slate-custom">{{ vision.body }}</p>
+
+          <h2 v-if="objective" id="objective" class="mt-10 text-2xl font-bold text-ink">{{ objective.heading }}</h2>
+          <p v-if="objective" class="whitespace-pre-line text-base text-slate-custom">{{ objective.body }}</p>
+
           <h2 id="inspiration" class="mt-10 text-2xl font-bold text-ink">Inspiraciones</h2>
           <ul class="text-base text-slate-custom">
             <li v-for="(item, idx) in inspirations" :key="idx">
@@ -29,6 +35,30 @@
               <strong>{{ item.title }}</strong> — {{ item.description }}
             </li>
           </ol>
+
+          <h2 v-if="team.length" id="team" class="mt-10 text-2xl font-bold text-ink">Equipo</h2>
+          <div v-for="(person, idx) in team" :key="idx" class="mt-4 not-prose rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10">
+            <p class="font-display text-lg font-semibold text-ink">{{ person.name }}</p>
+            <p v-if="person.role" class="text-sm font-medium text-primary">{{ person.role }}</p>
+            <p v-if="person.credentials" class="mt-3 whitespace-pre-line text-sm text-slate-custom">{{ person.credentials }}</p>
+            <p v-if="person.bio" class="mt-3 whitespace-pre-line text-base text-slate-custom">{{ person.bio }}</p>
+          </div>
+
+          <h2 v-if="mediaCoverageIntro" id="media" class="mt-10 text-2xl font-bold text-ink">{{ mediaCoverageIntro.heading }}</h2>
+          <p v-if="mediaCoverageIntro" class="whitespace-pre-line text-base text-slate-custom">{{ mediaCoverageIntro.body }}</p>
+          <ul v-if="mediaCoverage.length" class="not-prose mt-3 flex flex-wrap gap-2">
+            <li v-for="(outlet, idx) in mediaCoverage" :key="idx">
+              <a
+                :href="outlet.href"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="badge-primary inline-flex items-center gap-1.5 hover:bg-primary hover:text-white"
+              >
+                <Icon name="lucide:external-link" size="14" />
+                {{ outlet.label }}
+              </a>
+            </li>
+          </ul>
 
           <h2 v-if="reputationIntro" id="reputation" class="mt-10 text-2xl font-bold text-ink">
             {{ reputationIntro.heading }}
@@ -88,8 +118,13 @@ import { useTiersStore } from '~/stores/tiers'
 const cms = useCmsContent('about')
 const hero = cms.one<{ eyebrow: string; title: string; subtitle: string }>('hero')
 const mission = cms.one<{ heading: string; body: string }>('mission')
+const vision = cms.one<{ heading: string; body: string }>('vision')
+const objective = cms.one<{ heading: string; body: string }>('objective')
 const inspirations = cms.list<{ title: string; description: string }>('inspirations')
 const sources = cms.list<{ title: string; description: string }>('sources')
+const team = cms.list<{ name: string; role?: string; credentials?: string; bio?: string }>('team')
+const mediaCoverageIntro = cms.one<{ heading: string; body: string }>('mediaCoverageIntro')
+const mediaCoverage = cms.list<{ label: string; href: string }>('mediaCoverage')
 const reputationIntro = cms.one<{ heading: string; body: string }>('reputationIntro')
 const validation = cms.list<{ title: string; description: string }>('validation')
 const licenses = cms.one<{ heading: string; body: string }>('licenses')

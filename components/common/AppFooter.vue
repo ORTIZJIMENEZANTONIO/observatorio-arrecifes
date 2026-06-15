@@ -49,6 +49,50 @@
         </div>
       </div>
 
+      <!-- Secundario: ciencia, política, comparar — agrupado para evitar el dropdown -->
+      <div class="mt-10 grid grid-cols-2 gap-8 border-t border-white/10 pt-8 md:grid-cols-4">
+        <div>
+          <h4 class="mb-4 text-xs font-semibold uppercase tracking-wider text-white/50">Salud del arrecife</h4>
+          <ul class="space-y-2 text-sm text-white/70">
+            <li><NuxtLink to="/salud" class="hover:text-coral-light">Tablero general</NuxtLink></li>
+            <li><NuxtLink to="/salud/sctld" class="hover:text-coral-light">SCTLD</NuxtLink></li>
+            <li><NuxtLink to="/salud/blanqueamiento" class="hover:text-coral-light">Blanqueamiento</NuxtLink></li>
+            <li><NuxtLink to="/salud/restauracion" class="hover:text-coral-light">Restauración</NuxtLink></li>
+            <li><NuxtLink to="/salud/especies" class="hover:text-coral-light">Especies clave</NuxtLink></li>
+            <li><NuxtLink to="/salud/invasoras" class="hover:text-coral-light">Invasoras</NuxtLink></li>
+            <li><NuxtLink to="/salud/sargazo" class="hover:text-coral-light">Sargazo</NuxtLink></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 text-xs font-semibold uppercase tracking-wider text-white/50">Ciencia y política</h4>
+          <ul class="space-y-2 text-sm text-white/70">
+            <li><NuxtLink to="/policy" class="hover:text-coral-light">Policy briefs</NuxtLink></li>
+            <li><NuxtLink to="/protocolos" class="hover:text-coral-light">Protocolos</NuxtLink></li>
+            <li><NuxtLink to="/fenologia" class="hover:text-coral-light">Calendario fenológico</NuxtLink></li>
+            <li><NuxtLink to="/calendario" class="hover:text-coral-light">Eventos y campañas</NuxtLink></li>
+            <li><NuxtLink to="/citar" class="hover:text-coral-light">Cómo citar</NuxtLink></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 text-xs font-semibold uppercase tracking-wider text-white/50">Análisis y mapas</h4>
+          <ul class="space-y-2 text-sm text-white/70">
+            <li><NuxtLink to="/comparador" class="hover:text-coral-light">Comparar arrecifes</NuxtLink></li>
+            <li><NuxtLink to="/presiones" class="hover:text-coral-light">Presiones acumuladas</NuxtLink></li>
+            <li><NuxtLink to="/huracanes" class="hover:text-coral-light">Huracanes históricos</NuxtLink></li>
+            <li><NuxtLink to="/historias" class="hover:text-coral-light">Historias guiadas</NuxtLink></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 text-xs font-semibold uppercase tracking-wider text-white/50">Comunidad</h4>
+          <ul class="space-y-2 text-sm text-white/70">
+            <li><NuxtLink to="/contributors" class="hover:text-coral-light">Red de colaboradores</NuxtLink></li>
+            <li><NuxtLink to="/observations" class="hover:text-coral-light">Aportes validados</NuxtLink></li>
+            <li><NuxtLink to="/contribute" class="hover:text-coral-light">Cómo contribuir</NuxtLink></li>
+            <li><NuxtLink to="/noticias" class="hover:text-coral-light">Noticias</NuxtLink></li>
+          </ul>
+        </div>
+      </div>
+
       <div class="mt-10 border-t border-white/10 pt-6">
         <div class="mb-5 flex items-center justify-center gap-6">
           <a href="https://www.ipn.mx/" target="_blank" rel="noopener noreferrer" aria-label="CIIEMAD — IPN">
